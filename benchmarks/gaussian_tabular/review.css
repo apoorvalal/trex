@@ -1,0 +1,6 @@
+body {max-width:1100px;margin:40px auto;padding:0 24px;font:17px/1.6 system-ui,sans-serif;color:#22312e;background:#faf9f5}
+h1,h2,h3{line-height:1.25;color:#174b40}h2{margin-top:2.5em}a{color:#176459}
+img{max-width:100%;height:auto}table{display:block;overflow:auto;max-width:100%;font-size:13px;border-collapse:collapse}
+th,td{padding:5px 9px;border-bottom:1px solid #d5ddd7}pre{background:#ecefe9;padding:14px;font-size:12px;overflow:auto}
+math[display=block]{display:block;overflow:auto;margin:1em 0} .cell-output-display{overflow-x:auto}
+@media(max-width:650px){body{font-size:16px;padding:0 14px;margin:18px auto}h1{font-size:1.7em}}

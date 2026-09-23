@@ -1,0 +1,1028 @@
+[
+  {
+    "dataset": "ring",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 1,
+    "selection": 2.827056646347046,
+    "test_nll": 2.837157726287842,
+    "cumulative_seconds": 1.15624849696178
+  },
+  {
+    "dataset": "ring",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 1,
+    "selection": 2.8272647222933336,
+    "test_nll": 2.835465879269035,
+    "cumulative_seconds": 0.015608626999892294,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 2,
+    "selection": 2.5859646797180176,
+    "test_nll": 2.5810885429382324,
+    "cumulative_seconds": 1.7080099449958652
+  },
+  {
+    "dataset": "ring",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 2,
+    "selection": 2.5906285470435804,
+    "test_nll": 2.5883525910250684,
+    "cumulative_seconds": 0.02351932507008314,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 4,
+    "selection": 1.229562520980835,
+    "test_nll": 1.2397398948669434,
+    "cumulative_seconds": 2.2368280990049243
+  },
+  {
+    "dataset": "ring",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 4,
+    "selection": 1.2460609746859923,
+    "test_nll": 1.2542391671009347,
+    "cumulative_seconds": 0.03450097807217389,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 8,
+    "selection": 0.16339214146137238,
+    "test_nll": 0.1696787178516388,
+    "cumulative_seconds": 2.769361805054359
+  },
+  {
+    "dataset": "ring",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 8,
+    "selection": 0.18760323478740465,
+    "test_nll": 0.18557923729791784,
+    "cumulative_seconds": 0.05040575808379799,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 16,
+    "selection": 0.16368407011032104,
+    "test_nll": 0.17029038071632385,
+    "cumulative_seconds": 3.2493022000417113
+  },
+  {
+    "dataset": "ring",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 16,
+    "selection": 0.1879643861245907,
+    "test_nll": 0.1881326548317533,
+    "cumulative_seconds": 0.08361442806199193,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 32,
+    "selection": 0.16388896107673645,
+    "test_nll": 0.17064529657363892,
+    "cumulative_seconds": 3.7761200870154426
+  },
+  {
+    "dataset": "ring",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 32,
+    "selection": 0.18761997511111206,
+    "test_nll": 0.18619098992721697,
+    "cumulative_seconds": 0.17866700398735702,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 1,
+    "selection": 2.8374876976013184,
+    "test_nll": 2.848576545715332,
+    "cumulative_seconds": 0.5450295079499483
+  },
+  {
+    "dataset": "ring",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 1,
+    "selection": 2.837550407000614,
+    "test_nll": 2.847687597344426,
+    "cumulative_seconds": 0.004707308020442724,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 2,
+    "selection": 2.578132152557373,
+    "test_nll": 2.597771644592285,
+    "cumulative_seconds": 1.086815271875821
+  },
+  {
+    "dataset": "ring",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 2,
+    "selection": 2.5841046707412803,
+    "test_nll": 2.600235923361751,
+    "cumulative_seconds": 0.012230538995936513,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 4,
+    "selection": 1.2915140390396118,
+    "test_nll": 1.2540721893310547,
+    "cumulative_seconds": 1.6331315288553014
+  },
+  {
+    "dataset": "ring",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 4,
+    "selection": 1.2699063194553226,
+    "test_nll": 1.2433438952818527,
+    "cumulative_seconds": 0.022481841035187244,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 8,
+    "selection": 0.21090538799762726,
+    "test_nll": 0.19254714250564575,
+    "cumulative_seconds": 2.181148234871216
+  },
+  {
+    "dataset": "ring",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 8,
+    "selection": 0.23108461800672359,
+    "test_nll": 0.21152633172812457,
+    "cumulative_seconds": 0.03815874201245606,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 16,
+    "selection": 0.21080094575881958,
+    "test_nll": 0.1930396854877472,
+    "cumulative_seconds": 2.7178513169055805
+  },
+  {
+    "dataset": "ring",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 16,
+    "selection": 0.23189172618664064,
+    "test_nll": 0.21218348254358113,
+    "cumulative_seconds": 0.08076677308417857,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 32,
+    "selection": 0.21111486852169037,
+    "test_nll": 0.19311371445655823,
+    "cumulative_seconds": 3.2537983019137755
+  },
+  {
+    "dataset": "ring",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 32,
+    "selection": 0.23138333022534172,
+    "test_nll": 0.2105936176180247,
+    "cumulative_seconds": 0.14280073007103056,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 1,
+    "selection": 2.8421382904052734,
+    "test_nll": 2.840224504470825,
+    "cumulative_seconds": 0.5257804120192304
+  },
+  {
+    "dataset": "ring",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 1,
+    "selection": 2.842283351916668,
+    "test_nll": 2.840526752045226,
+    "cumulative_seconds": 0.004903597058728337,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 2,
+    "selection": 2.602034568786621,
+    "test_nll": 2.583974838256836,
+    "cumulative_seconds": 1.0758756899740547
+  },
+  {
+    "dataset": "ring",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 2,
+    "selection": 2.6041712927017118,
+    "test_nll": 2.602577505558469,
+    "cumulative_seconds": 0.01270518300589174,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 4,
+    "selection": 1.2538254261016846,
+    "test_nll": 1.2733689546585083,
+    "cumulative_seconds": 1.619854692951776
+  },
+  {
+    "dataset": "ring",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 4,
+    "selection": 1.2723991847993328,
+    "test_nll": 1.2609863604615845,
+    "cumulative_seconds": 0.023324651992879808,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 8,
+    "selection": 0.23287555575370789,
+    "test_nll": 0.200609028339386,
+    "cumulative_seconds": 2.235570886870846
+  },
+  {
+    "dataset": "ring",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 8,
+    "selection": 0.239944396502024,
+    "test_nll": 0.21348338682519144,
+    "cumulative_seconds": 0.03904334700200707,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 16,
+    "selection": 0.2326250523328781,
+    "test_nll": 0.20157340168952942,
+    "cumulative_seconds": 2.772985343937762
+  },
+  {
+    "dataset": "ring",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 16,
+    "selection": 0.23999211917378527,
+    "test_nll": 0.21446724437462505,
+    "cumulative_seconds": 0.07315017806831747,
+    "converged": true
+  },
+  {
+    "dataset": "ring",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 32,
+    "selection": 0.2324913740158081,
+    "test_nll": 0.20128417015075684,
+    "cumulative_seconds": 3.3090556839015335
+  },
+  {
+    "dataset": "ring",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 32,
+    "selection": 0.23997177988660087,
+    "test_nll": 0.21356182731056716,
+    "cumulative_seconds": 0.18280283210333437,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 1,
+    "selection": 2.8194007873535156,
+    "test_nll": 2.8904690742492676,
+    "cumulative_seconds": 0.5376280669588596
+  },
+  {
+    "dataset": "banana",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 1,
+    "selection": 2.832657522853208,
+    "test_nll": 2.88050587566637,
+    "cumulative_seconds": 0.004820864996872842,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 2,
+    "selection": 2.0545830726623535,
+    "test_nll": 2.0647292137145996,
+    "cumulative_seconds": 1.0792971259215847
+  },
+  {
+    "dataset": "banana",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 2,
+    "selection": 2.060962856261293,
+    "test_nll": 2.0708960457760677,
+    "cumulative_seconds": 0.03037193394266069,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 4,
+    "selection": 1.4147565364837646,
+    "test_nll": 1.4136701822280884,
+    "cumulative_seconds": 1.6398601409746334
+  },
+  {
+    "dataset": "banana",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 4,
+    "selection": 1.4272332293208265,
+    "test_nll": 1.4305887505075405,
+    "cumulative_seconds": 0.05323106690775603,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 8,
+    "selection": 1.2388429641723633,
+    "test_nll": 1.2381409406661987,
+    "cumulative_seconds": 2.1873255379032344
+  },
+  {
+    "dataset": "banana",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 8,
+    "selection": 1.2298085451407919,
+    "test_nll": 1.2362840246129139,
+    "cumulative_seconds": 0.08824238984379917,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 16,
+    "selection": 1.2095818519592285,
+    "test_nll": 1.2161827087402344,
+    "cumulative_seconds": 2.731560692889616
+  },
+  {
+    "dataset": "banana",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 16,
+    "selection": 1.220639030458191,
+    "test_nll": 1.2355291689110501,
+    "cumulative_seconds": 0.13509334181435406,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 32,
+    "selection": 1.2096893787384033,
+    "test_nll": 1.2166764736175537,
+    "cumulative_seconds": 3.2778046098537743
+  },
+  {
+    "dataset": "banana",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 32,
+    "selection": 1.2233983413288052,
+    "test_nll": 1.236314840425849,
+    "cumulative_seconds": 0.20984066475648433,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 1,
+    "selection": 2.86550235748291,
+    "test_nll": 2.899021625518799,
+    "cumulative_seconds": 0.5484476159326732
+  },
+  {
+    "dataset": "banana",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 1,
+    "selection": 2.8665866682381917,
+    "test_nll": 2.900228067937455,
+    "cumulative_seconds": 0.004775463021360338,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 2,
+    "selection": 2.3328354358673096,
+    "test_nll": 2.297096014022827,
+    "cumulative_seconds": 1.118463633931242
+  },
+  {
+    "dataset": "banana",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 2,
+    "selection": 2.0597458931473565,
+    "test_nll": 2.142625533229445,
+    "cumulative_seconds": 0.034439439070411026,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 4,
+    "selection": 1.4392507076263428,
+    "test_nll": 1.447130560874939,
+    "cumulative_seconds": 1.679680964909494
+  },
+  {
+    "dataset": "banana",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 4,
+    "selection": 1.4414034527665391,
+    "test_nll": 1.44069452231513,
+    "cumulative_seconds": 0.0582714700140059,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 8,
+    "selection": 1.258432149887085,
+    "test_nll": 1.2429877519607544,
+    "cumulative_seconds": 2.2257758108898997
+  },
+  {
+    "dataset": "banana",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 8,
+    "selection": 1.2703839037585962,
+    "test_nll": 1.2447477370435598,
+    "cumulative_seconds": 0.09505062003154308,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 16,
+    "selection": 1.2543083429336548,
+    "test_nll": 1.2237725257873535,
+    "cumulative_seconds": 2.790044981869869
+  },
+  {
+    "dataset": "banana",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 16,
+    "selection": 1.2558151450270234,
+    "test_nll": 1.2516761691697944,
+    "cumulative_seconds": 0.14820357004646212,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 32,
+    "selection": 1.2538021802902222,
+    "test_nll": 1.2244691848754883,
+    "cumulative_seconds": 3.329345828969963
+  },
+  {
+    "dataset": "banana",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 32,
+    "selection": 1.2670258556241123,
+    "test_nll": 1.3106052983839611,
+    "cumulative_seconds": 0.22289315797388554,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 1,
+    "selection": 2.8661088943481445,
+    "test_nll": 2.8763957023620605,
+    "cumulative_seconds": 0.5366642040899023
+  },
+  {
+    "dataset": "banana",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 1,
+    "selection": 2.8689825680788132,
+    "test_nll": 2.874166661103395,
+    "cumulative_seconds": 0.004768606973811984,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 2,
+    "selection": 2.2460124492645264,
+    "test_nll": 2.2903478145599365,
+    "cumulative_seconds": 1.0690045900410041
+  },
+  {
+    "dataset": "banana",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 2,
+    "selection": 2.0979874765552387,
+    "test_nll": 2.079400104439138,
+    "cumulative_seconds": 0.036406961968168616,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 4,
+    "selection": 1.4479213953018188,
+    "test_nll": 1.4383552074432373,
+    "cumulative_seconds": 1.6071084570139647
+  },
+  {
+    "dataset": "banana",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 4,
+    "selection": 1.4509611014916262,
+    "test_nll": 1.4379174391628402,
+    "cumulative_seconds": 0.06651935400441289,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 8,
+    "selection": 1.2923741340637207,
+    "test_nll": 1.2738926410675049,
+    "cumulative_seconds": 2.145761415013112
+  },
+  {
+    "dataset": "banana",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 8,
+    "selection": 1.2859043315538792,
+    "test_nll": 1.2741925003912835,
+    "cumulative_seconds": 0.10246629803441465,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 16,
+    "selection": 1.2762227058410645,
+    "test_nll": 1.2695767879486084,
+    "cumulative_seconds": 2.6797085769940168
+  },
+  {
+    "dataset": "banana",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 16,
+    "selection": 1.2781359106946018,
+    "test_nll": 1.2703150137998027,
+    "cumulative_seconds": 0.153598070028238,
+    "converged": true
+  },
+  {
+    "dataset": "banana",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 32,
+    "selection": 1.2757755517959595,
+    "test_nll": 1.2601017951965332,
+    "cumulative_seconds": 3.1762703290442005
+  },
+  {
+    "dataset": "banana",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 32,
+    "selection": 1.3211439113067653,
+    "test_nll": 1.280512305405351,
+    "cumulative_seconds": 0.22664733999408782,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 1,
+    "selection": 0.22874027719640866,
+    "test_nll": null,
+    "cumulative_seconds": 0.5283654349623248
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 1,
+    "selection": 0.24206027062126534,
+    "test_nll": null,
+    "cumulative_seconds": 0.0036546640330925584,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 2,
+    "selection": 0.20524410541920676,
+    "test_nll": null,
+    "cumulative_seconds": 1.063900889013894
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 2,
+    "selection": 0.21528807985245724,
+    "test_nll": null,
+    "cumulative_seconds": 0.01740931801032275,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 4,
+    "selection": 0.17364060971532252,
+    "test_nll": null,
+    "cumulative_seconds": 1.5893094600178301
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 4,
+    "selection": 0.18657210977583585,
+    "test_nll": null,
+    "cumulative_seconds": 0.04594933602493256,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 8,
+    "selection": 0.16280742414561847,
+    "test_nll": null,
+    "cumulative_seconds": 2.1248422691132873
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 8,
+    "selection": 0.1849077074390765,
+    "test_nll": null,
+    "cumulative_seconds": 0.08777624205686152,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 16,
+    "selection": 0.14099962396633273,
+    "test_nll": null,
+    "cumulative_seconds": 2.6599173970753327
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 16,
+    "selection": 0.1864093919388056,
+    "test_nll": null,
+    "cumulative_seconds": 0.15386024699546397,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 0,
+    "method": "split_adam",
+    "k": 32,
+    "selection": 0.19441253615695278,
+    "test_nll": null,
+    "cumulative_seconds": 3.191273909062147
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 0,
+    "method": "em_gmm",
+    "k": 32,
+    "selection": 0.15681672937899735,
+    "test_nll": null,
+    "cumulative_seconds": 0.31984589400235564,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 1,
+    "selection": 0.18978745761721794,
+    "test_nll": null,
+    "cumulative_seconds": 0.5273291780613363
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 1,
+    "selection": 0.18942120497823095,
+    "test_nll": null,
+    "cumulative_seconds": 0.0035894259344786406,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 2,
+    "selection": 0.1409315273688216,
+    "test_nll": null,
+    "cumulative_seconds": 1.0670170050580055
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 2,
+    "selection": 0.18404313334391442,
+    "test_nll": null,
+    "cumulative_seconds": 0.026625942904502153,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 4,
+    "selection": 0.1267382957428812,
+    "test_nll": null,
+    "cumulative_seconds": 1.5980755919590592
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 4,
+    "selection": 0.16534768958968535,
+    "test_nll": null,
+    "cumulative_seconds": 0.04933483083732426,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 8,
+    "selection": 0.14096840754085785,
+    "test_nll": null,
+    "cumulative_seconds": 2.136634032940492
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 8,
+    "selection": 0.133129342490349,
+    "test_nll": null,
+    "cumulative_seconds": 0.08540984883438796,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 16,
+    "selection": 0.14712212887714496,
+    "test_nll": null,
+    "cumulative_seconds": 2.669335625017993
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 16,
+    "selection": 0.16385557291912506,
+    "test_nll": null,
+    "cumulative_seconds": 0.16467933892272413,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 1,
+    "method": "split_adam",
+    "k": 32,
+    "selection": 0.17391345536138217,
+    "test_nll": null,
+    "cumulative_seconds": 3.2065131890121847
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 1,
+    "method": "em_gmm",
+    "k": 32,
+    "selection": 0.14900864668373914,
+    "test_nll": null,
+    "cumulative_seconds": 0.335102844866924,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 1,
+    "selection": 0.19938315050932925,
+    "test_nll": null,
+    "cumulative_seconds": 0.5411145200487226
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 1,
+    "selection": 0.19800735015271761,
+    "test_nll": null,
+    "cumulative_seconds": 0.0036416249349713326,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 2,
+    "selection": 0.1764075399010863,
+    "test_nll": null,
+    "cumulative_seconds": 1.0791483969660476
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 2,
+    "selection": 0.1913283681630568,
+    "test_nll": null,
+    "cumulative_seconds": 0.018633520929142833,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 4,
+    "selection": 0.15752358861883192,
+    "test_nll": null,
+    "cumulative_seconds": 1.6190216148970649
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 4,
+    "selection": 0.1443880559059247,
+    "test_nll": null,
+    "cumulative_seconds": 0.05720133695285767,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 8,
+    "selection": 0.13752119113270989,
+    "test_nll": null,
+    "cumulative_seconds": 2.17003199190367
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 8,
+    "selection": 0.2185626579825704,
+    "test_nll": null,
+    "cumulative_seconds": 0.11707917193416506,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 16,
+    "selection": 0.13574630012193487,
+    "test_nll": null,
+    "cumulative_seconds": 2.7167221579002216
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 16,
+    "selection": 0.145660418034692,
+    "test_nll": null,
+    "cumulative_seconds": 0.21428453095722944,
+    "converged": true
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 2,
+    "method": "split_adam",
+    "k": 32,
+    "selection": 0.13530636229327375,
+    "test_nll": null,
+    "cumulative_seconds": 3.2556751848896965
+  },
+  {
+    "dataset": "lalonde",
+    "seed": 2,
+    "method": "em_gmm",
+    "k": 32,
+    "selection": 0.1257647882973683,
+    "test_nll": null,
+    "cumulative_seconds": 0.31536916096229106,
+    "converged": true
+  }
+]

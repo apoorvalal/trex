@@ -1,0 +1,34 @@
+{
+  "trex_source": "tmp/gaussian-tabular-reference",
+  "paper_repo": "../dswgan-paper",
+  "out": "tmp/gaussian-tabular-2026-09-23",
+  "datasets": [
+    "ring",
+    "banana",
+    "lalonde"
+  ],
+  "seeds": 3,
+  "counts": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32
+  ],
+  "steps": 300,
+  "neural_steps": 1500,
+  "neural": [
+    "wgan",
+    "ptgan",
+    "diffusion"
+  ],
+  "variance_floor": 0.0025,
+  "device": "cuda",
+  "reference_source_hashes": {
+    "base.py": "4a76d7d3cb8049d6529a1470c3ad2557cfd94ebe4cf3eebe575b5084eabc62b3",
+    "simdgp.py": "d61c7ecb29c8742e3502619c9e3cb7c4e68f66eb6e0ebc04f4a3f0e38368fc9a"
+  },
+  "torch_version": "2.9.1+cu128",
+  "device_name": "NVIDIA GeForce RTX 5070"
+}
