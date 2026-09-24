@@ -221,22 +221,30 @@ class MaximumLikelihoodEstimator(BaseEstimator):
             )
 
         # Move data to device
-        X = X.to(self.device)
-        y = y.to(self.device)
-
+        X = _to_tensor(X, self.device)
+        if not X.is_floating_point():
+            X = X.to(torch.float64)
+        y = _to_tensor(y, self.device, dtype=X.dtype)
+        if X.ndim != 2 or y.shape[0] != X.shape[0] or len(X) == 0:
+            raise ValueError("X and y must have matching, nonempty rows")
+        if not torch.isfinite(X).all() or not torch.isfinite(y).all():
+            raise ValueError("X and y must be finite")
         n_features = X.shape[1]
         if init_params is None:
-            torch.manual_seed(0)
-            init_params_val = (
-                torch.randn(n_features, device=self.device, dtype=X.dtype) * 0.01
-            )
+            init_params_val = torch.zeros(n_features, device=self.device, dtype=X.dtype)
         else:
-            init_params_val = init_params.to(self.device)
+            init_params_val = init_params.to(device=self.device, dtype=X.dtype)
 
-        current_params = init_params_val.clone().requires_grad_(True)
+        current_params = init_params_val.detach().clone().requires_grad_(True)
 
         if _is_lbfgs_optimizer(self.optimizer_class):
-            optimizer = self.optimizer_class([current_params], max_iter=20)
+            optimizer = self.optimizer_class(
+                [current_params],
+                max_iter=20,
+                line_search_fn="strong_wolfe",
+                tolerance_grad=1e-9,
+                tolerance_change=torch.finfo(X.dtype).eps,
+            )
         else:
             optimizer = self.optimizer_class([current_params])
 
@@ -351,9 +359,13 @@ class MaximumLikelihoodEstimator(BaseEstimator):
                 raise ValueError("Fixed-effect design matrices must match `X` rows.")
             row_counts = np.diff(csr.indptr)
             if not np.all(row_counts == 1):
-                raise ValueError("Each FE design row must contain exactly one active level.")
+                raise ValueError(
+                    "Each FE design row must contain exactly one active level."
+                )
             if not np.allclose(csr.data, 1.0):
-                raise ValueError("FE design matrices must be one-hot incidence matrices.")
+                raise ValueError(
+                    "FE design matrices must be one-hot incidence matrices."
+                )
 
             codes = torch.as_tensor(csr.indices, device=self.device, dtype=torch.int64)
             n_levels = csr.shape[1]
@@ -374,9 +386,13 @@ class MaximumLikelihoodEstimator(BaseEstimator):
             values = design.values().to(device=self.device)
             row_counts = crow[1:] - crow[:-1]
             if not torch.all(row_counts == 1):
-                raise ValueError("Each FE design row must contain exactly one active level.")
+                raise ValueError(
+                    "Each FE design row must contain exactly one active level."
+                )
             if not torch.allclose(values, torch.ones_like(values)):
-                raise ValueError("FE design matrices must be one-hot incidence matrices.")
+                raise ValueError(
+                    "FE design matrices must be one-hot incidence matrices."
+                )
 
             return {
                 "mode": "design",
@@ -399,9 +415,13 @@ class MaximumLikelihoodEstimator(BaseEstimator):
             col = indices[1]
             row_counts = torch.bincount(row, minlength=n_obs)
             if not torch.all(row_counts == 1):
-                raise ValueError("Each FE design row must contain exactly one active level.")
+                raise ValueError(
+                    "Each FE design row must contain exactly one active level."
+                )
             if not torch.allclose(values, torch.ones_like(values)):
-                raise ValueError("FE design matrices must be one-hot incidence matrices.")
+                raise ValueError(
+                    "FE design matrices must be one-hot incidence matrices."
+                )
 
             codes = torch.empty(n_obs, device=self.device, dtype=torch.int64)
             codes.scatter_(0, row, col.to(dtype=torch.int64))
@@ -418,15 +438,21 @@ class MaximumLikelihoodEstimator(BaseEstimator):
         dense = _to_tensor(design, device=self.device, dtype=dtype)
         if dense.ndim != 2 or dense.shape[0] != n_obs:
             raise ValueError("Dense FE design matrices must be 2D with `n_obs` rows.")
-        if not torch.allclose(dense.sum(dim=1), torch.ones(n_obs, device=self.device, dtype=dtype)):
-            raise ValueError("Dense FE design matrices must be one-hot incidence matrices.")
+        if not torch.allclose(
+            dense.sum(dim=1), torch.ones(n_obs, device=self.device, dtype=dtype)
+        ):
+            raise ValueError(
+                "Dense FE design matrices must be one-hot incidence matrices."
+            )
 
         codes = torch.argmax(dense, dim=1).to(dtype=torch.int64)
         return {
             "mode": "design",
             "codes": codes,
             "n_levels": int(dense.shape[1]),
-            "levels": torch.arange(dense.shape[1], device=self.device, dtype=torch.int64),
+            "levels": torch.arange(
+                dense.shape[1], device=self.device, dtype=torch.int64
+            ),
             "dtype": dtype,
         }
 
@@ -438,11 +464,12 @@ class MaximumLikelihoodEstimator(BaseEstimator):
         init_params: Optional[Any],
     ) -> torch.Tensor:
         """Construct an initial packed parameter vector."""
-        total_params = n_features + sum(max(block["n_levels"] - 1, 0) for block in fe_blocks)
+        total_params = n_features + sum(
+            max(block["n_levels"] - 1, 0) for block in fe_blocks
+        )
 
         if init_params is None:
-            torch.manual_seed(0)
-            return torch.randn(total_params, device=self.device, dtype=dtype) * 0.01
+            return torch.zeros(total_params, device=self.device, dtype=dtype)
 
         if isinstance(init_params, dict):
             packed = torch.zeros(total_params, device=self.device, dtype=dtype)
@@ -453,7 +480,9 @@ class MaximumLikelihoodEstimator(BaseEstimator):
 
             fe_init = init_params.get("fe_coef", [])
             if len(fe_init) != len(fe_blocks):
-                raise ValueError("`init_params['fe_coef']` must match the FE block count.")
+                raise ValueError(
+                    "`init_params['fe_coef']` must match the FE block count."
+                )
 
             cursor = n_features
             for block, values in zip(fe_blocks, fe_init):
@@ -617,7 +646,9 @@ class MaximumLikelihoodEstimator(BaseEstimator):
             for raw_block, fitted_block in zip(raw_blocks, fitted_blocks):
                 block_tensor = _to_tensor(raw_block, self.device)
                 if block_tensor.ndim != 1 or block_tensor.shape[0] != n_obs:
-                    raise ValueError("Prediction FE vectors must be 1D and match `X` rows.")
+                    raise ValueError(
+                        "Prediction FE vectors must be 1D and match `X` rows."
+                    )
 
                 if fitted_block["mode"] == "design":
                     raise ValueError(
@@ -627,7 +658,9 @@ class MaximumLikelihoodEstimator(BaseEstimator):
                 levels = fitted_block["levels"]
                 codes = torch.searchsorted(levels, block_tensor)
                 valid = codes < levels.numel()
-                valid = valid & (levels[codes.clamp_max(levels.numel() - 1)] == block_tensor)
+                valid = valid & (
+                    levels[codes.clamp_max(levels.numel() - 1)] == block_tensor
+                )
                 if not torch.all(valid):
                     raise ValueError("Prediction FE contains unseen levels.")
 
@@ -654,7 +687,9 @@ class MaximumLikelihoodEstimator(BaseEstimator):
                 dtype=self.params["coef"].dtype,
             )
             if block["n_levels"] != fitted_block["n_levels"]:
-                raise ValueError("Prediction FE design columns do not match the fitted model.")
+                raise ValueError(
+                    "Prediction FE design columns do not match the fitted model."
+                )
             pred_blocks.append(block)
 
         return pred_blocks
@@ -764,7 +799,9 @@ class MaximumLikelihoodEstimator(BaseEstimator):
                         dtype=dtype,
                     )
                     if reduced > 0:
-                        block_vcov = fisher_inv[cursor : cursor + reduced, cursor : cursor + reduced]
+                        block_vcov = fisher_inv[
+                            cursor : cursor + reduced, cursor : cursor + reduced
+                        ]
                         full[1:] = torch.sqrt(
                             torch.clamp(torch.diag(block_vcov), min=0.0)
                         )
@@ -850,9 +887,7 @@ class MaximumLikelihoodEstimator(BaseEstimator):
             )
             if block_slice.stop > block_slice.start:
                 block_vcov = schur_inv[block_slice, block_slice]
-                full[1:] = torch.sqrt(
-                    torch.clamp(torch.diag(block_vcov), min=0.0)
-                )
+                full[1:] = torch.sqrt(torch.clamp(torch.diag(block_vcov), min=0.0))
             fe_se[block_index] = full
 
         projected = schur_inv @ B
@@ -901,17 +936,27 @@ class MaximumLikelihoodEstimator(BaseEstimator):
             n_obs=n_obs,
             dtype=X.dtype,
         )
-        current_params = self._initialize_panel_parameters(
-            n_features=n_features,
-            fe_blocks=fe_blocks,
-            dtype=X.dtype,
-            init_params=init_params,
-        ).clone().requires_grad_(True)
+        current_params = (
+            self._initialize_panel_parameters(
+                n_features=n_features,
+                fe_blocks=fe_blocks,
+                dtype=X.dtype,
+                init_params=init_params,
+            )
+            .clone()
+            .requires_grad_(True)
+        )
 
         if _is_lbfgs_optimizer(self.optimizer_class):
             if batch_size is not None and batch_size < n_obs:
                 raise ValueError("LBFGS only supports full-batch FE-GLM fitting.")
-            optimizer = self.optimizer_class([current_params], max_iter=20)
+            optimizer = self.optimizer_class(
+                [current_params],
+                max_iter=20,
+                line_search_fn="strong_wolfe",
+                tolerance_grad=1e-9,
+                tolerance_change=torch.finfo(X.dtype).eps,
+            )
         else:
             optimizer = self.optimizer_class([current_params])
 
@@ -981,7 +1026,9 @@ class MaximumLikelihoodEstimator(BaseEstimator):
                         print(f"Convergence tolerance {self.tol} met at iteration {i}.")
                     break
 
-        coef, fe_coef = self._unpack_panel_parameters(current_params.detach(), n_features, fe_blocks)
+        coef, fe_coef = self._unpack_panel_parameters(
+            current_params.detach(), n_features, fe_blocks
+        )
         self.params = {"coef": coef}
         if fe_blocks:
             self.params["fe_coef"] = [values.detach() for values in fe_coef]
@@ -1140,7 +1187,7 @@ class MaximumLikelihoodEstimator(BaseEstimator):
 
         print("\n" + "=" * 50)
 
-        coef = self.params["coef"].detach().cpu().numpy()
+        coef = self.params["coef"].detach().cpu().numpy().ravel()
 
         if self.params.get("se") is not None:
             se = self.params["se"].detach().cpu().numpy()
