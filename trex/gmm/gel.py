@@ -43,11 +43,12 @@ class GELEstimator:
     rho : Callable[[np.ndarray], np.ndarray], default=rho_exponential
         GEL tilt function defining the criterion (ET, EL, or CUE).
     min_method : str, default="L-BFGS-B"
-        Optimization method used for both inner and outer problems.
+        Optimization method for the outer profile problem; the inner convex
+        problem uses a domain-preserving Newton line search.
     verbose : bool, default=False
         If True, enables optimizer display output.
     log : bool, default=False
-        If True, sets logger level to INFO.
+        If True, emits inner-objective diagnostics to the module logger.
     """
 
     def __init__(
@@ -71,10 +72,7 @@ class GELEstimator:
         self.J_stat: Optional[float] = None
         self.J_pvalue: Optional[float] = None
 
-        if log:
-            logging.basicConfig(level=logging.INFO)
-        else:
-            logging.basicConfig(level=logging.WARNING)
+        self._log = log
 
     def fit(
         self,
@@ -83,8 +81,37 @@ class GELEstimator:
         startval2: Optional[np.ndarray] = None,
     ) -> None:
         """Fit GEL estimator with proper asymptotic standard errors"""
+        D = np.asarray(D, dtype=float)
+        startval = np.asarray(startval, dtype=float)
+        if (
+            D.ndim == 0
+            or len(D) < 2
+            or startval.ndim != 1
+            or not len(startval)
+            or not np.isfinite(D).all()
+            or not np.isfinite(startval).all()
+        ):
+            raise ValueError("Need finite data with >=2 rows and a parameter vector")
+        moments = np.asarray(self.m(D, startval))
+        if (
+            moments.ndim != 2
+            or len(moments) != len(D)
+            or moments.shape[1] < len(startval)
+            or not np.isfinite(moments).all()
+        ):
+            raise ValueError(
+                "Moments must be finite n-by-q with q >= number of parameters"
+            )
         if startval2 is None:
-            startval2 = np.zeros(self.m(D, startval).shape[1])  # Start lambda at zero
+            startval2 = np.zeros(moments.shape[1])
+        startval2 = np.asarray(startval2, dtype=float)
+        if startval2.shape != (moments.shape[1],) or not np.isfinite(startval2).all():
+            raise ValueError(
+                "Initial multipliers must be finite with one entry per moment"
+            )
+        if self.rho is rho_el and np.any(moments @ startval2 >= 1):
+            raise ValueError("Initial EL multipliers lie outside the likelihood domain")
+        self.est = self.se = self.Sigma = None
 
         self.D_ = D
         self.n_ = D.shape[0]
@@ -113,6 +140,7 @@ class GELEstimator:
 
         # Compute J-test statistic
         self._compute_j_test()
+        return self
 
     def summary(self, alpha: float = 0.05) -> dict:
         """Summary table with test statistics"""
@@ -198,7 +226,8 @@ class GELEstimator:
         moments = self.m(D, theta)  # Moment conditions (n x k)
         tilts = np.dot(moments, lam)  # (n,)
         obj_value = -np.sum(self.rho(tilts))
-        logging.info(f"Inner minimisation: lam={lam}, Objective value: {obj_value}")
+        if self._log:
+            logging.getLogger(__name__).info("Inner objective: %s", obj_value)
         return obj_value
 
     def _get_rho_derivative(self, rho_func):
@@ -255,7 +284,6 @@ class GELEstimator:
             return
 
         # J-statistic: n * objective function value at optimum
-        moment_avg = moments.mean(axis=0)
         tilts = np.dot(moments, self.lam_hat)
 
         # GEL J-statistic
@@ -263,4 +291,4 @@ class GELEstimator:
 
         # Under null, J ~ chi2(q-p)
         df = q - p
-        self.J_pvalue = 1 - chi2.cdf(self.J_stat, df)
+        self.J_pvalue = chi2.sf(self.J_stat, df)

@@ -136,3 +136,14 @@ def test_linear_flow_features_retained_after_fit():
     assert data["all_states_features"] is original["all_states_features"]
     m.to("cpu")
     assert m.simulate(torch.tensor([0]), 2)[0].shape == (1, 3)
+
+
+def test_hm_refit_refreshes_automatic_ccps():
+    m, _ = setup_model(HotzMillerCCP)
+    states = torch.arange(8).repeat(20)
+    actions = torch.tensor([0] * 8 + [1] * 8).repeat(10)
+    m.fit({"states": states, "actions": actions})
+    assert_allclose(m.ccp_hat[:, 1], np.full(8, 0.5))
+    actions = torch.tensor([0] * 8 + [1] * 24).repeat(5)
+    m.fit({"states": states, "actions": actions})
+    assert_allclose(m.ccp_hat[:, 1], np.full(8, 0.75))

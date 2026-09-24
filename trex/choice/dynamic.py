@@ -455,8 +455,17 @@ class DynamicChoiceModel(ChoiceModel):
         Returns:
             probs: (n_obs, n_choices) choice probabilities
         """
-        # Extract value functions for observed states
-        v_obs = v_bar[states]  # (n_obs, n_choices)
+        # Follow the supplied value tensor's device, including standalone use.
+        states = states.to(v_bar.device)
+        if (
+            states.ndim != 1
+            or not torch.isfinite(states).all()
+            or torch.any(states < 0)
+            or torch.any(states >= self.n_states)
+            or (states.is_floating_point() and not torch.equal(states, states.round()))
+        ):
+            raise ValueError("states must be valid integer state indices")
+        v_obs = v_bar[states.long()]  # (n_obs, n_choices)
 
         # Softmax to get probabilities
         probs = torch.softmax(v_obs, dim=1)
@@ -480,13 +489,7 @@ class DynamicChoiceModel(ChoiceModel):
             theta_dict = {"theta": params.reshape(self.utility_fn.theta.shape)}
             phi = None
         else:
-            # Fallback: assume params maps to parameters() in order
-            theta_dict = {}  # Can't map easily without names.
-            # But since we use it to UPDATE utility_fn manually in _negative_log_likelihood usually,
-            # this might be redundant if we just handle it there.
-            # However, RustNFP uses it.
-            pass
-            theta_dict, phi = {}, None
+            raise NotImplementedError("Unsupported flow utility parameterization")
 
         return theta_dict, phi
 
@@ -720,9 +723,11 @@ class HotzMillerCCP(DynamicChoiceModel):
 
     def estimate_ccps(self, data: DynamicChoiceData) -> None:
         """Estimate CCPs from data."""
+        data.validate()
         self.ccp_hat = estimate_ccps(
             data.states, data.actions, self.n_states, self.n_choices
         ).to(self.device)
+        self._automatic_ccps = True
 
     def _precompute_inversion_matrices(self) -> None:
         """
@@ -775,18 +780,24 @@ class HotzMillerCCP(DynamicChoiceModel):
         verbose: bool = False,
     ) -> "HotzMillerCCP":
         if isinstance(data, DynamicChoiceData):
-            # Estimate CCPs if not provided
-            if self.ccp_hat is None:
+            # Honor explicitly supplied CCPs; refresh automatically estimated ones.
+            if self.ccp_hat is None or getattr(self, "_automatic_ccps", False):
                 self.estimate_ccps(data)
         elif isinstance(data, dict) and "ccp_hat" in data:
             self.ccp_hat = data["ccp_hat"].to(self.device)
+            self._automatic_ccps = False
 
-        if self.ccp_hat is None:
+        if self.ccp_hat is None or (
+            isinstance(data, dict)
+            and "ccp_hat" not in data
+            and getattr(self, "_automatic_ccps", False)
+        ):
             # Fallback: if data is dict but missing ccp_hat, try to estimate from states/actions
             if isinstance(data, dict) and "states" in data and "actions" in data:
                 self.ccp_hat = estimate_ccps(
                     data["states"], data["actions"], self.n_states, self.n_choices
                 ).to(self.device)
+                self._automatic_ccps = True
             else:
                 raise ValueError("CCP estimates required for HotzMillerCCP")
 

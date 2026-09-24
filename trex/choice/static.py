@@ -169,8 +169,10 @@ class BinaryProbit(ChoiceModel):
         """
         logits = X @ params
         # log_ndtr retains rare-event gradients even when Phi underflows.
-        signed_logits = torch.where(y == 1, logits, -logits)
-        return -torch.special.log_ndtr(signed_logits).sum()
+        return -(
+            y * torch.special.log_ndtr(logits)
+            + (1 - y) * torch.special.log_ndtr(-logits)
+        ).sum()
 
     def _compute_fisher_information(
         self, params: torch.Tensor, X: torch.Tensor, y: torch.Tensor
@@ -655,22 +657,10 @@ class LowRankLogit(ChoiceModel):
     def _compute_fisher_information(
         self, params: torch.Tensor, X: torch.Tensor, y: torch.Tensor
     ) -> torch.Tensor:
-        """
-        Compute Fisher information matrix for low-rank logit model.
-
-        Note: This is a placeholder returning identity matrix. Full implementation
-        requires computation of expected Hessian of the low-rank factorized utility.
-
-        Args:
-            params: Flattened [A; B] parameters.
-            X: User indices (unused but kept for interface consistency).
-            y: Chosen item indices (unused but kept for interface consistency).
-
-        Returns:
-            Placeholder identity matrix of shape (n_params, n_params).
-        """
-        # This is a placeholder and should be implemented properly.
-        return torch.eye(params.shape[0], device=self.device)
+        """Factorized-logit inference requires identification-aware treatment."""
+        raise NotImplementedError(
+            "LowRankLogit standard errors are not implemented; factor rotations make the naive Hessian singular"
+        )
 
     def simulate(
         self, X: torch.Tensor, assortments: torch.Tensor = None

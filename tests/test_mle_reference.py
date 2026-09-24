@@ -80,3 +80,11 @@ def test_probit_coefs_expected_information_against_glm():
     )
     assert_allclose(m.params["coef"], r.params, atol=1e-6)
     assert_allclose(m.params["vcov"], r.cov_params(), atol=1e-7)
+
+
+def test_low_rank_logit_does_not_fabricate_information():
+    from trex.choice import LowRankLogit
+
+    m = LowRankLogit(1, 3, 2, device="cpu")
+    with pytest.raises(NotImplementedError, match="standard errors"):
+        m._compute_fisher_information(torch.zeros(5), torch.arange(3), torch.zeros(3))
