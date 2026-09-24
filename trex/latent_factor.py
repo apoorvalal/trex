@@ -13,48 +13,12 @@ import torch
 import torch.nn.functional as F
 
 from .base import BaseEstimator
-
-
-def _to_tensor(
-    value: Any,
-    device: torch.device,
-    dtype: Optional[torch.dtype] = None,
-) -> torch.Tensor:
-    """Convert array-like input to a tensor on the requested device."""
-    if isinstance(value, torch.Tensor):
-        tensor = value.to(device)
-        if dtype is not None:
-            tensor = tensor.to(dtype=dtype)
-        return tensor
-
-    tensor = torch.as_tensor(value, device=device)
-    if dtype is not None:
-        tensor = tensor.to(dtype=dtype)
-    return tensor
-
-
-def _optimizer_display_name(optimizer_class: Any) -> str:
-    """Return a readable optimizer name for classes and functools.partial."""
-    if hasattr(optimizer_class, "__name__"):
-        return optimizer_class.__name__
-    if hasattr(optimizer_class, "func") and hasattr(optimizer_class.func, "__name__"):
-        return optimizer_class.func.__name__
-    return optimizer_class.__class__.__name__
-
-
-def _is_lbfgs_optimizer(optimizer_class: Any) -> bool:
-    """Check whether an optimizer specification resolves to LBFGS."""
-    base = getattr(optimizer_class, "func", optimizer_class)
-    try:
-        return issubclass(base, torch.optim.LBFGS)
-    except TypeError:
-        return base == torch.optim.LBFGS
-
-
-def _encode_ids(values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """Return sorted unique levels and inverse indices."""
-    levels, codes = torch.unique(values, sorted=True, return_inverse=True)
-    return levels, codes.to(dtype=torch.int64)
+from ._utils import (
+    _to_tensor,
+    _optimizer_display_name,
+    _is_lbfgs_optimizer,
+    _encode_ids,
+)
 
 
 def _validate_levels(values: torch.Tensor, levels: torch.Tensor) -> torch.Tensor:
@@ -205,16 +169,24 @@ class LatentFactorGLM(BaseEstimator):
 
         if X.ndim == 3:
             if y.ndim != 2:
-                raise ValueError("Dense panel fitting requires y with shape (n_units, n_times).")
+                raise ValueError(
+                    "Dense panel fitting requires y with shape (n_units, n_times)."
+                )
             if X.shape[:2] != y.shape:
-                raise ValueError("Dense X and y must agree on the first two dimensions.")
+                raise ValueError(
+                    "Dense X and y must agree on the first two dimensions."
+                )
 
             n_units, n_times, n_features = X.shape
             if unit_ids is not None or time_ids is not None:
-                raise ValueError("Do not pass unit_ids or time_ids with dense panel inputs.")
+                raise ValueError(
+                    "Do not pass unit_ids or time_ids with dense panel inputs."
+                )
 
             if mask is None:
-                mask_tensor = torch.ones((n_units, n_times), device=self.device, dtype=torch.bool)
+                mask_tensor = torch.ones(
+                    (n_units, n_times), device=self.device, dtype=torch.bool
+                )
             else:
                 mask_tensor = _to_tensor(mask, self.device).to(dtype=torch.bool)
                 if mask_tensor.shape != (n_units, n_times):
@@ -225,10 +197,16 @@ class LatentFactorGLM(BaseEstimator):
             else:
                 offset_tensor = _to_tensor(offset, self.device, dtype=X.dtype)
                 if offset_tensor.shape != (n_units, n_times):
-                    raise ValueError("Dense offsets must have shape (n_units, n_times).")
+                    raise ValueError(
+                        "Dense offsets must have shape (n_units, n_times)."
+                    )
 
-            unit_grid = torch.arange(n_units, device=self.device)[:, None].expand(n_units, n_times)
-            time_grid = torch.arange(n_times, device=self.device)[None, :].expand(n_units, n_times)
+            unit_grid = torch.arange(n_units, device=self.device)[:, None].expand(
+                n_units, n_times
+            )
+            time_grid = torch.arange(n_times, device=self.device)[None, :].expand(
+                n_units, n_times
+            )
             flat_mask = mask_tensor.reshape(-1)
 
             return {
@@ -236,14 +214,24 @@ class LatentFactorGLM(BaseEstimator):
                 "y_obs": y.reshape(-1)[flat_mask],
                 "unit_obs": unit_grid.reshape(-1)[flat_mask].to(dtype=torch.int64),
                 "time_obs": time_grid.reshape(-1)[flat_mask].to(dtype=torch.int64),
-                "offset_obs": None if offset_tensor is None else offset_tensor.reshape(-1)[flat_mask],
-                "unit_levels": torch.arange(n_units, device=self.device, dtype=torch.int64),
-                "time_levels": torch.arange(n_times, device=self.device, dtype=torch.int64),
+                "offset_obs": (
+                    None
+                    if offset_tensor is None
+                    else offset_tensor.reshape(-1)[flat_mask]
+                ),
+                "unit_levels": torch.arange(
+                    n_units, device=self.device, dtype=torch.int64
+                ),
+                "time_levels": torch.arange(
+                    n_times, device=self.device, dtype=torch.int64
+                ),
                 "panel_shape": (n_units, n_times),
             }
 
         if X.ndim != 2:
-            raise ValueError("Observation-list fitting requires X with shape (n_obs, n_features).")
+            raise ValueError(
+                "Observation-list fitting requires X with shape (n_obs, n_features)."
+            )
         if y.ndim != 1:
             raise ValueError("Observation-list fitting requires y with shape (n_obs,).")
         if unit_ids is None or time_ids is None:
@@ -252,7 +240,9 @@ class LatentFactorGLM(BaseEstimator):
         unit_ids = _to_tensor(unit_ids, self.device).to(dtype=torch.int64)
         time_ids = _to_tensor(time_ids, self.device).to(dtype=torch.int64)
         if unit_ids.shape[0] != X.shape[0] or time_ids.shape[0] != X.shape[0]:
-            raise ValueError("unit_ids and time_ids must match the number of observations.")
+            raise ValueError(
+                "unit_ids and time_ids must match the number of observations."
+            )
 
         if mask is None:
             mask_tensor = torch.ones(X.shape[0], device=self.device, dtype=torch.bool)
@@ -297,11 +287,17 @@ class LatentFactorGLM(BaseEstimator):
         beta_init = torch.linalg.lstsq(X_obs, working_target).solution
 
         if self.rank == 0:
-            unit_factors = torch.zeros((n_units, 0), device=self.device, dtype=X_obs.dtype)
-            time_factors = torch.zeros((n_times, 0), device=self.device, dtype=X_obs.dtype)
+            unit_factors = torch.zeros(
+                (n_units, 0), device=self.device, dtype=X_obs.dtype
+            )
+            time_factors = torch.zeros(
+                (n_times, 0), device=self.device, dtype=X_obs.dtype
+            )
             return beta_init, unit_factors, time_factors
 
-        residual_matrix = torch.zeros((n_units, n_times), device=self.device, dtype=X_obs.dtype)
+        residual_matrix = torch.zeros(
+            (n_units, n_times), device=self.device, dtype=X_obs.dtype
+        )
         counts = torch.zeros((n_units, n_times), device=self.device, dtype=X_obs.dtype)
         residual = working_target - X_obs @ beta_init
         residual_matrix.index_put_((unit_obs, time_obs), residual, accumulate=True)
@@ -319,8 +315,12 @@ class LatentFactorGLM(BaseEstimator):
         time_factors = Vh[:rank, :].T * sqrt_s
 
         if rank < self.rank:
-            pad_u = torch.zeros((n_units, self.rank - rank), device=self.device, dtype=X_obs.dtype)
-            pad_t = torch.zeros((n_times, self.rank - rank), device=self.device, dtype=X_obs.dtype)
+            pad_u = torch.zeros(
+                (n_units, self.rank - rank), device=self.device, dtype=X_obs.dtype
+            )
+            pad_t = torch.zeros(
+                (n_times, self.rank - rank), device=self.device, dtype=X_obs.dtype
+            )
             unit_factors = torch.cat([unit_factors, pad_u], dim=1)
             time_factors = torch.cat([time_factors, pad_t], dim=1)
 
@@ -352,7 +352,9 @@ class LatentFactorGLM(BaseEstimator):
             residual = y_obs - linear_term
             loss = 0.5 * torch.mean(residual**2)
         elif self.family == "bernoulli":
-            loss = F.binary_cross_entropy_with_logits(linear_term, y_obs, reduction="mean")
+            loss = F.binary_cross_entropy_with_logits(
+                linear_term, y_obs, reduction="mean"
+            )
         else:
             loss = F.poisson_nll_loss(
                 linear_term,
@@ -417,7 +419,9 @@ class LatentFactorGLM(BaseEstimator):
         self._panel_shape = data["panel_shape"]
 
         if X_obs.shape[0] == 0:
-            raise ValueError("Training data contains no observed cells after applying the mask.")
+            raise ValueError(
+                "Training data contains no observed cells after applying the mask."
+            )
         self._validate_response(y_obs)
 
         beta_init, unit_init, time_init = self._initialize_parameters(
@@ -436,7 +440,9 @@ class LatentFactorGLM(BaseEstimator):
         params = [beta, unit_factors, time_factors]
 
         if _is_lbfgs_optimizer(self.optimizer_class):
-            optimizer = self.optimizer_class(params, max_iter=20, **self.optimizer_kwargs)
+            optimizer = self.optimizer_class(
+                params, max_iter=20, **self.optimizer_kwargs
+            )
         else:
             optimizer = self.optimizer_class(params, **self.optimizer_kwargs)
 
@@ -484,7 +490,9 @@ class LatentFactorGLM(BaseEstimator):
                 rel_change = abs(prev - loss_item) / (abs(prev) + 1e-8)
                 if rel_change < self.tol:
                     if verbose:
-                        print(f"Convergence tolerance {self.tol} met at iteration {iteration}.")
+                        print(
+                            f"Convergence tolerance {self.tol} met at iteration {iteration}."
+                        )
                     break
 
         self.iterations_run = iteration + 1
@@ -526,21 +534,33 @@ class LatentFactorGLM(BaseEstimator):
                 )
             panel_shape = X.shape[:2]
             if panel_shape != self._panel_shape:
-                raise ValueError("Dense prediction panels must match the fitted panel dimensions.")
+                raise ValueError(
+                    "Dense prediction panels must match the fitted panel dimensions."
+                )
             n_units, n_times, n_features = X.shape
             if n_features != self._fit_context["n_features"]:
-                raise ValueError("Prediction feature dimension does not match the fitted model.")
+                raise ValueError(
+                    "Prediction feature dimension does not match the fitted model."
+                )
             if unit_ids is not None or time_ids is not None:
-                raise ValueError("Do not pass unit_ids or time_ids with dense panel prediction.")
+                raise ValueError(
+                    "Do not pass unit_ids or time_ids with dense panel prediction."
+                )
 
-            unit_grid = torch.arange(n_units, device=self.device)[:, None].expand(n_units, n_times)
-            time_grid = torch.arange(n_times, device=self.device)[None, :].expand(n_units, n_times)
+            unit_grid = torch.arange(n_units, device=self.device)[:, None].expand(
+                n_units, n_times
+            )
+            time_grid = torch.arange(n_times, device=self.device)[None, :].expand(
+                n_units, n_times
+            )
             if offset is None:
                 offset_obs = None
             else:
                 offset_tensor = _to_tensor(offset, self.device, dtype=dtype)
                 if offset_tensor.shape != (n_units, n_times):
-                    raise ValueError("Dense prediction offsets must match the panel shape.")
+                    raise ValueError(
+                        "Dense prediction offsets must match the panel shape."
+                    )
                 offset_obs = offset_tensor.reshape(-1)
 
             return {
@@ -554,21 +574,29 @@ class LatentFactorGLM(BaseEstimator):
         if X.ndim != 2:
             raise ValueError("Prediction X must be 2D or 3D.")
         if unit_ids is None or time_ids is None:
-            raise ValueError("Observation-list prediction requires unit_ids and time_ids.")
+            raise ValueError(
+                "Observation-list prediction requires unit_ids and time_ids."
+            )
         if X.shape[1] != self._fit_context["n_features"]:
-            raise ValueError("Prediction feature dimension does not match the fitted model.")
+            raise ValueError(
+                "Prediction feature dimension does not match the fitted model."
+            )
 
         unit_ids = _to_tensor(unit_ids, self.device).to(dtype=torch.int64)
         time_ids = _to_tensor(time_ids, self.device).to(dtype=torch.int64)
         if unit_ids.shape[0] != X.shape[0] or time_ids.shape[0] != X.shape[0]:
-            raise ValueError("unit_ids and time_ids must match the number of prediction rows.")
+            raise ValueError(
+                "unit_ids and time_ids must match the number of prediction rows."
+            )
 
         if offset is None:
             offset_obs = None
         else:
             offset_obs = _to_tensor(offset, self.device, dtype=dtype)
             if offset_obs.shape != (X.shape[0],):
-                raise ValueError("Observation-list offsets must match the number of rows.")
+                raise ValueError(
+                    "Observation-list offsets must match the number of rows."
+                )
 
         unit_obs = _validate_levels(unit_ids, self._fit_context["unit_levels"])
         time_obs = _validate_levels(time_ids, self._fit_context["time_levels"])
@@ -642,7 +670,9 @@ class LatentFactorGLM(BaseEstimator):
     ) -> torch.Tensor:
         """Predict Bernoulli success probabilities."""
         if self.family != "bernoulli":
-            raise ValueError("`predict_proba` is only available for family='bernoulli'.")
+            raise ValueError(
+                "`predict_proba` is only available for family='bernoulli'."
+            )
         return self.predict_mean(
             X=X,
             unit_ids=unit_ids,

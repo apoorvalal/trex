@@ -6,42 +6,7 @@ import torch
 from scipy import sparse, stats
 
 from .base import BaseEstimator
-
-
-def _optimizer_display_name(optimizer_class: Any) -> str:
-    """Return a readable optimizer name for classes and functools.partial."""
-    if hasattr(optimizer_class, "__name__"):
-        return optimizer_class.__name__
-    if hasattr(optimizer_class, "func") and hasattr(optimizer_class.func, "__name__"):
-        return optimizer_class.func.__name__
-    return optimizer_class.__class__.__name__
-
-
-def _is_lbfgs_optimizer(optimizer_class: Any) -> bool:
-    """Check whether an optimizer specification resolves to LBFGS."""
-    base = getattr(optimizer_class, "func", optimizer_class)
-    try:
-        return issubclass(base, torch.optim.LBFGS)
-    except TypeError:
-        return base == torch.optim.LBFGS
-
-
-def _to_tensor(
-    value: Any,
-    device: torch.device,
-    dtype: Optional[torch.dtype] = None,
-) -> torch.Tensor:
-    """Convert arrays to tensors on the requested device."""
-    if isinstance(value, torch.Tensor):
-        tensor = value.to(device)
-        if dtype is not None:
-            tensor = tensor.to(dtype=dtype)
-        return tensor
-
-    tensor = torch.as_tensor(value, device=device)
-    if dtype is not None:
-        tensor = tensor.to(dtype=dtype)
-    return tensor
+from ._utils import _to_tensor, _optimizer_display_name, _is_lbfgs_optimizer
 
 
 def _safe_inverse(
@@ -916,8 +881,20 @@ class MaximumLikelihoodEstimator(BaseEstimator):
     ) -> "MaximumLikelihoodEstimator":
         """Shared FE-aware GLM fitting path for logistic and Poisson models."""
         X = _to_tensor(X, self.device)
+        if not X.is_floating_point():
+            X = X.to(torch.float64)
         y = _to_tensor(y, self.device, dtype=X.dtype)
 
+        if X.ndim != 2 or len(X) == 0 or y.shape != (len(X),):
+            raise ValueError("Expected nonempty X (n,p) and y (n,)")
+        if not X.is_floating_point():
+            X, y = X.to(torch.float64), y.to(torch.float64)
+        if not torch.isfinite(X).all() or not torch.isfinite(y).all():
+            raise ValueError("X and y must be finite")
+        if isinstance(self, LogisticRegression) and torch.any((y < 0) | (y > 1)):
+            raise ValueError("Logistic responses must lie in [0,1]")
+        if isinstance(self, PoissonRegression) and torch.any(y < 0):
+            raise ValueError("Poisson responses must be nonnegative")
         n_obs, n_features = X.shape
         if batch_size is not None and batch_size <= 0:
             raise ValueError("`batch_size` must be positive.")
@@ -927,7 +904,10 @@ class MaximumLikelihoodEstimator(BaseEstimator):
         offset_tensor = None
         if offset is not None:
             offset_tensor = _to_tensor(offset, self.device, dtype=X.dtype).flatten()
-            if offset_tensor.shape[0] != n_obs:
+            if (
+                offset_tensor.shape[0] != n_obs
+                or not torch.isfinite(offset_tensor).all()
+            ):
                 raise ValueError("`offset` must have one entry per observation.")
 
         fe_blocks = self._canonicalize_fe_inputs(
