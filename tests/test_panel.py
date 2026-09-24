@@ -110,7 +110,7 @@ def _load_california_prop99_tensor():
     import csv
     from pathlib import Path
 
-    path = Path(__file__).resolve().parents[1].parent / "_refs" / "synthdid" / "data" / "california_prop99.csv"
+    path = Path(__file__).parent / "data" / "california_prop99.csv"
     rows = []
     with path.open(newline="") as f:
         reader = csv.DictReader(f, delimiter=";")
