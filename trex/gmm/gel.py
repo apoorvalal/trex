@@ -9,7 +9,6 @@ import numpy as np
 from scipy.optimize import minimize
 from typing import Callable, Optional
 import logging
-from scipy.linalg import inv, pinv
 from scipy.stats import chi2
 
 
@@ -28,9 +27,8 @@ def rho_el(v: np.ndarray) -> np.ndarray:
     """Empirical Likelihood (EL): rho(v) = log(1-v)
     Note: requires v < 1 for all observations
     """
-    # Add small epsilon to avoid log(0)
-    v_safe = np.clip(v, -np.inf, 1 - 1e-10)
-    return np.log(1 - v_safe)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.where(v < 1, np.log1p(-v), -np.inf)
 
 
 class GELEstimator:
@@ -91,24 +89,23 @@ class GELEstimator:
         self.D_ = D
         self.n_ = D.shape[0]
 
-        # Outer maximization
+        # Minimize the profiled (maximized over lambda) GEL criterion
         result = minimize(
-            lambda theta: self._outer_maximisation(theta, D, startval2),
+            lambda theta: self._profile_value_gradient(theta, D, startval2),
             startval,
+            jac=True,
             method=self._min_method,
-            options={"disp": self._verbose},
+            tol=1e-10,
+            options={"maxiter": 2000},
         )
 
+        self.result_ = result
+        if not np.isfinite(result.fun) or not result.success:
+            raise RuntimeError(f"GEL outer optimization failed: {result.message}")
         self.est = result.x
 
         # Get optimal lambda for final theta
-        lam_result = minimize(
-            self._inner_minimisation,
-            startval2,
-            args=(self.est, D),
-            method=self._min_method,
-            options={"disp": False},
-        )
+        lam_result = self._solve_inner(self.est, D, startval2)
         self.lam_hat = lam_result.x
 
         # Compute proper asymptotic standard errors
@@ -148,14 +145,52 @@ class GELEstimator:
     def _outer_maximisation(
         self, theta: np.ndarray, D: np.ndarray, startval2: np.ndarray
     ) -> float:
-        result = minimize(
-            self._inner_minimisation,
-            startval2,
-            args=(theta, D),
-            method=self._min_method,
-            options={"disp": False},  # Suppress inner loop output
-        )
+        result = self._solve_inner(theta, D, startval2)
         return -result.fun
+
+    def _solve_inner(self, theta, D, start):
+        from types import SimpleNamespace
+
+        moments = self.m(D, theta)
+        lam = np.asarray(start, dtype=float).copy()
+        n = len(moments)
+        for _ in range(200):
+            tilts = moments @ lam
+            objective = -self.rho(tilts).mean()
+            gradient = -moments.T @ self.rho_prime(tilts) / n
+            if np.linalg.norm(gradient, ord=np.inf) < 1e-9:
+                return SimpleNamespace(x=lam, fun=objective * n, success=True)
+            hessian = -(moments.T * self.rho_double_prime(tilts)) @ moments / n
+            step = np.linalg.solve(hessian, gradient)
+            rate = 1.0
+            for _ in range(60):
+                candidate = lam - rate * step
+                v = moments @ candidate
+                if self.rho is rho_el and np.any(v >= 1):
+                    rate *= 0.5
+                    continue
+                trial = -self.rho(v).mean()
+                if (
+                    np.isfinite(trial)
+                    and trial <= objective - 1e-4 * rate * (gradient @ step) + 1e-15
+                ):
+                    lam = candidate
+                    break
+                rate *= 0.5
+            else:
+                raise RuntimeError("GEL inner line search did not converge")
+        raise RuntimeError("GEL inner optimization did not converge")
+
+    def _profile_value_gradient(self, theta, D, start):
+        from .gmm import numerical_jacobian
+
+        result = self._solve_inner(theta, D, start)
+        lam = result.x
+        g = self.m(D, theta)
+        # Envelope theorem: differentiate moments, holding optimal lambda fixed.
+        derivative = numerical_jacobian(lambda b: self.m(D, b) @ lam, theta)
+        gradient = (self.rho_prime(g @ lam)[:, None] * derivative).mean(axis=0)
+        return -result.fun / len(D), gradient
 
     def _inner_minimisation(
         self, lam: np.ndarray, theta: np.ndarray, D: np.ndarray
@@ -194,52 +229,18 @@ class GELEstimator:
         n, q = moments.shape
         p = len(self.est)  # number of parameters
 
-        # Compute tilts and weights
-        tilts = np.dot(moments, self.lam_hat)  # n x 1
-        rho_prime_vals = self.rho_prime(tilts)  # n x 1
-        rho_double_prime_vals = self.rho_double_prime(tilts)  # n x 1
+        # Under correctly specified moments, EL/ET/CUE share the efficient
+        # first-order covariance (G' Omega^-1 G)^-1 / n. G is q by p.
+        # Do not replace a failed p-by-p covariance with a q-by-q moment matrix.
+        from .gmm import numerical_jacobian, moment_covariance
 
-        # Gradient of moment conditions w.r.t. theta
-        # Use numerical differentiation if analytical not available
-        eps = 1e-8
-        G = np.zeros((q, p))
-        for j in range(p):
-            theta_plus = self.est.copy()
-            theta_minus = self.est.copy()
-            theta_plus[j] += eps
-            theta_minus[j] -= eps
-
-            moments_plus = self.m(self.D_, theta_plus)
-            moments_minus = self.m(self.D_, theta_minus)
-
-            G[:, j] = (moments_plus - moments_minus).mean(axis=0) / (2 * eps)
-
-        # Compute blocks of the Hessian
-        try:
-            # H_λλ: second derivative w.r.t. λ
-            weighted_moments = moments * rho_double_prime_vals[:, np.newaxis]
-            H_lam_lam = weighted_moments.T @ moments / n
-
-            # H_θλ: cross derivative
-            H_theta_lam = G
-
-            # Inverse of H_λλ (regularized if needed)
-            try:
-                H_lam_lam_inv = inv(H_lam_lam)
-            except np.linalg.LinAlgError:
-                H_lam_lam_inv = pinv(H_lam_lam)
-
-            # Asymptotic variance: (H_θλ H_λλ^{-1} H_λθ)^{-1}
-            V_theta = inv(H_theta_lam @ H_lam_lam_inv @ H_theta_lam.T)
-
-            self.Sigma = V_theta / n
-            self.se = np.sqrt(np.diag(self.Sigma))
-
-        except (np.linalg.LinAlgError, ValueError) as e:
-            logging.warning(f"Could not compute asymptotic covariance: {e}")
-            # Fallback to simple covariance
-            self.Sigma = np.cov(moments.T) / n
-            self.se = np.sqrt(np.diag(self.Sigma))
+        G = numerical_jacobian(lambda b: self.m(self.D_, b).mean(axis=0), self.est)
+        omega = moment_covariance(moments)
+        information = G.T @ np.linalg.solve(omega, G)
+        if np.linalg.matrix_rank(information) < p:
+            raise ValueError("GEL parameters are not locally identified")
+        self.Sigma = np.linalg.inv(information) / n
+        self.se = np.sqrt(np.diag(self.Sigma))
 
     def _compute_j_test(self):
         """Compute J-test for overidentifying restrictions"""
