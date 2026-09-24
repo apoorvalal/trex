@@ -171,7 +171,7 @@ The existing package API and policy-CATE PR are unchanged.
 - [Lalonde replication inputs](https://github.com/evanmunro/dswgan-paper).
 - [scikit-learn Gaussian mixture reference](https://scikit-learn.org/stable/modules/mixture.html).
 ''')]
-nb.cells[-1].source += '\n\n## Downloads\n\n[Executed notebook](gaussian_tabular_pilot.ipynb) · [Source and result summaries](source.tar.gz)\n\nThe code is committed locally on the Trex experimental branch. No package API\nchanges or GitHub publication are part of this pilot.\n'
+nb.cells[-1].source += '\n\n## Source and results\n\n[Experiment source and result summaries](https://github.com/apoorvalal/trex/tree/experiment/gaussian-tabular-2026-09-23/benchmarks/gaussian_tabular) · [Executed notebook](https://github.com/apoorvalal/trex/tree/experiment/gaussian-tabular-2026-09-23/nb/gaussian_tabular_pilot.ipynb)\n\nThe experiment lives on a separate Trex branch and leaves the public package\nAPI unchanged.\n'
 a.output.parent.mkdir(parents=True,exist_ok=True)
 nbf.write(nb,a.output)
 print(a.output)
