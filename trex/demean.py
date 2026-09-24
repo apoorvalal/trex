@@ -1,171 +1,117 @@
-"""
-PyTorch-based demeaning for fixed effects regression.
-"""
+"""Weighted alternating projections for additive fixed effects."""
+
 from typing import Optional, Union
 
-import torch
 import numpy as np
+import torch
 
 
-# @torch.compile  # Disabled for compatibility
-def _demean_torch_impl(
-    x: torch.Tensor,
-    flist: torch.Tensor,
-    weights: torch.Tensor,
-    n_groups: int,
-    tol: float,
-    maxiter: int,
-) -> tuple[torch.Tensor, bool]:
-    """Compiled implementation of demeaning via alternating projections."""
-    n_factors = flist.shape[1]
+def prepare_fixed_effects(fe_vars: list) -> Optional[torch.Tensor]:
+    """Encode each factor independently, including string or sparse numeric IDs."""
+    if not fe_vars:
+        return None
+    arrays = []
+    device = next((v.device for v in fe_vars if isinstance(v, torch.Tensor)), "cpu")
+    for value in fe_vars:
+        if isinstance(value, torch.Tensor):
+            value = value.detach().cpu().numpy()
+        value = np.asarray(value)
+        if value.ndim != 1:
+            raise ValueError("Each fixed-effect factor must be one-dimensional")
+        # pandas handles numeric/string IDs and detects missing labels uniformly.
+        from pandas import factorize
 
-    def _apply_factor(x_curr, j):
-        """Process a single factor."""
-        factor_ids = flist[:, j]
-        wx = x_curr * weights[:, None]
-
-        # Compute group weights and weighted sums using scatter_add
-        group_weights = torch.zeros(n_groups, device=x_curr.device, dtype=weights.dtype)
-        group_weights.scatter_add_(0, factor_ids, weights)
-
-        # For each column in wx, compute group sums
-        group_sums = torch.zeros(n_groups, x_curr.shape[1], device=x_curr.device, dtype=x_curr.dtype)
-        for col_idx in range(x_curr.shape[1]):
-            group_sums[:, col_idx].scatter_add_(0, factor_ids, wx[:, col_idx])
-
-        # Compute and subtract means
-        means = group_sums / torch.clamp(group_weights[:, None], min=1e-12)
-        return x_curr - means[factor_ids]
-
-    def _demean_step(x_curr):
-        """Single demeaning step for all factors."""
-        result = x_curr
-        for j in range(n_factors):
-            result = _apply_factor(result, j)
-        return result
-
-    # Run the iteration loop
-    x_curr = x.clone()
-    converged = False
-
-    for i in range(maxiter):
-        x_new = _demean_step(x_curr)
-        max_diff = torch.max(torch.abs(x_new - x_curr))
-
-        if max_diff < tol:
-            converged = True
-            break
-
-        x_curr = x_new
-
-    return x_curr, converged
+        codes, _ = factorize(value, sort=False)
+        if np.any(codes < 0):
+            raise ValueError("Fixed-effect labels must not be missing")
+        arrays.append(torch.as_tensor(codes, device=device))
+    if len({len(a) for a in arrays}) != 1:
+        raise ValueError("Fixed-effect factors must have the same length")
+    return torch.stack(arrays, dim=1)
 
 
 def demean_torch(
     x: Union[np.ndarray, torch.Tensor],
     flist: Union[np.ndarray, torch.Tensor],
     weights: Optional[Union[np.ndarray, torch.Tensor]] = None,
-    tol: float = 1e-08,
+    tol: float = 1e-8,
     maxiter: int = 100_000,
 ) -> tuple[torch.Tensor, bool]:
+    """Return weighted within residuals and a convergence flag.
+
+    Weights must be finite and strictly positive. Each factor is re-encoded, so
+    allocation depends on the number of levels, not the largest label. All
+    columns share one projection pass; the returned array includes the last
+    (converged) update. Computation uses float64, as in the original API.
     """
-    Demean array using PyTorch implementation of alternating projections.
-
-    Parameters
-    ----------
-    x : array-like
-        Input array of shape (n_samples, n_features) to demean.
-    flist : array-like
-        Fixed effects array of shape (n_samples, n_factors) with integer factor IDs.
-    weights : array-like, optional
-        Weights array of shape (n_samples,). If None, uses uniform weights.
-    tol : float, optional
-        Tolerance for convergence. Default is 1e-08.
-    maxiter : int, optional
-        Maximum number of iterations. Default is 100_000.
-
-    Returns
-    -------
-    tuple[torch.Tensor, bool]
-        Tuple of (demeaned_array, converged).
-    """
-    # Convert inputs to PyTorch tensors
-    if not isinstance(x, torch.Tensor):
-        x = torch.tensor(x, dtype=torch.float64)
-    else:
-        x = x.to(torch.float64)
-
-    if not isinstance(flist, torch.Tensor):
-        flist = torch.tensor(flist, dtype=torch.int64)
-    else:
-        flist = flist.to(torch.int64)
-
-    # Handle weights
-    if weights is None:
-        weights = torch.ones(x.shape[0], dtype=torch.float64, device=x.device)
-    else:
-        if not isinstance(weights, torch.Tensor):
-            weights = torch.tensor(weights, dtype=torch.float64, device=x.device)
-        else:
-            weights = weights.to(torch.float64).to(x.device)
-
-    # Ensure x is 2D
+    x = torch.as_tensor(x).to(dtype=torch.float64)
     if x.ndim == 1:
         x = x[:, None]
-
-    # Ensure flist is 2D
-    if flist.ndim == 1:
-        flist = flist[:, None]
-
-    # Move flist to same device as x
-    flist = flist.to(x.device)
-
-    # Compute number of groups across all factors
-    n_groups = int(torch.max(flist).item() + 1)
-
-    # Call the compiled implementation
-    result, converged = _demean_torch_impl(
-        x, flist, weights, n_groups, tol, maxiter
+    if x.ndim != 2 or x.shape[0] == 0 or not torch.isfinite(x).all():
+        raise ValueError("x must be a nonempty, finite matrix")
+    f = torch.as_tensor(flist, device=x.device)
+    if f.ndim == 1:
+        f = f[:, None]
+    if f.ndim != 2 or len(f) != len(x) or not torch.isfinite(f).all():
+        raise ValueError("Fixed effects must be finite and match the rows of x")
+    if tol <= 0 or not np.isfinite(tol) or maxiter < 1:
+        raise ValueError("tol and maxiter must be positive")
+    w = (
+        torch.ones(len(x), dtype=x.dtype, device=x.device)
+        if weights is None
+        else torch.as_tensor(weights, dtype=x.dtype, device=x.device)
     )
+    if w.shape != (len(x),) or not torch.isfinite(w).all() or torch.any(w <= 0):
+        raise ValueError("weights must be finite, strictly positive, and match x")
+    factors = []
+    for j in range(f.shape[1]):
+        levels, codes = torch.unique(f[:, j], return_inverse=True)
+        totals = torch.zeros(len(levels), dtype=x.dtype, device=x.device).index_add_(
+            0, codes, w
+        )
+        factors.append((codes, totals))
+    current = x.clone()
+    for _ in range(maxiter):
+        previous = current
+        for codes, totals in factors:
+            sums = torch.zeros(len(totals), x.shape[1], dtype=x.dtype, device=x.device)
+            sums.index_add_(0, codes, current * w[:, None])
+            current = current - (sums / totals[:, None])[codes]
+        if current.numel() == 0 or torch.max(torch.abs(current - previous)) < tol:
+            return current, True
+    return current, False
 
-    return result, converged
 
+def fixed_effect_rank(codes: torch.Tensor) -> int:
+    """Exact rank of additive FE incidence, without dense n-by-level dummies.
 
-def prepare_fixed_effects(fe_vars: list) -> torch.Tensor:
+    One/two-factor rank uses level counts / graph connected components. For
+    three or more factors a bounded level-by-level Gram calculation is used.
     """
-    Prepare fixed effects variables for demeaning.
+    from scipy import sparse
+    from scipy.sparse.csgraph import connected_components
 
-    Parameters
-    ----------
-    fe_vars : list
-        List of arrays containing fixed effects variables.
-
-    Returns
-    -------
-    torch.Tensor
-        Array of shape (n_samples, n_factors) with integer factor IDs.
-    """
-    if not fe_vars:
-        return None
-
-    # Convert each FE variable to consecutive integers starting from 0
-    fe_arrays = []
-    offset = 0
-
-    for fe_var in fe_vars:
-        if not isinstance(fe_var, torch.Tensor):
-            fe_array = torch.tensor(fe_var)
-        else:
-            fe_array = fe_var
-
-        # Get unique values and create mapping
-        unique_vals = torch.unique(fe_array)
-        n_unique = len(unique_vals)
-
-        # Create consecutive integer mapping
-        fe_mapped = torch.searchsorted(unique_vals, fe_array) + offset
-        fe_arrays.append(fe_mapped)
-        offset += n_unique
-
-    # Stack all FE variables
-    return torch.stack(fe_arrays, dim=1)
+    f = codes.detach().cpu().numpy()
+    encoded = [np.unique(f[:, j], return_inverse=True)[1] for j in range(f.shape[1])]
+    sizes = [int(c.max()) + 1 for c in encoded]
+    if len(sizes) == 1:
+        return sizes[0]
+    if len(sizes) == 2:
+        edge = sparse.coo_matrix(
+            (np.ones(len(f)), (encoded[0], encoded[1] + sizes[0])),
+            shape=(sum(sizes), sum(sizes)),
+        )
+        return sum(sizes) - connected_components(
+            edge, directed=False, return_labels=False
+        )
+    if sum(sizes) > 2048:
+        raise ValueError(
+            "Exact rank for 3+ FE factors with >2048 levels is expensive; supply df_absorbed explicitly"
+        )
+    offsets = np.cumsum([0] + sizes[:-1])
+    columns = np.column_stack([c + o for c, o in zip(encoded, offsets)]).ravel()
+    dummy = sparse.coo_matrix(
+        (np.ones(len(columns)), (np.repeat(np.arange(len(f)), len(sizes)), columns)),
+        shape=(len(f), sum(sizes)),
+    ).tocsr()
+    return int(np.linalg.matrix_rank((dummy.T @ dummy).toarray(), hermitian=True))
