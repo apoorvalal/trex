@@ -1,0 +1,63 @@
+{
+  "weighted_ols": {
+    "before": {
+      "coef_max_abs_error": 0.040548185179104856,
+      "se_max_abs_error": 0.14756033490573087
+    },
+    "after": {
+      "coef_max_abs_error": 1.3322676295501878e-15,
+      "se_max_abs_error": 1.6653345369377348e-16
+    }
+  },
+  "weighted_fe": {
+    "before": {
+      "coef_max_abs_error": 0.1287661619995406,
+      "se_max_abs_error": 0.05690195622148632
+    },
+    "after": {
+      "coef_max_abs_error": 2.886579864025407e-15,
+      "se_max_abs_error": 1.290079154614432e-13
+    }
+  },
+  "probit_rare_event": {
+    "scipy_nll": 804.6084420137539,
+    "before": {
+      "nll": 18.420680743952367,
+      "gradient": 0.0
+    },
+    "after": {
+      "nll": 804.6084420137539,
+      "gradient": 40.024968847212364
+    }
+  },
+  "unequal_sample_w1": {
+    "before": 4.0,
+    "after": 2.0,
+    "scipy": 2.0
+  },
+  "logistic": {
+    "r_coefficient_max_abs_error": 6.194502133460844e-09,
+    "r_covariance_max_abs_error": 1.7342270536291338e-09
+  },
+  "poisson": {
+    "r_coefficient_max_abs_error": 3.5923194974252226e-10,
+    "r_covariance_max_abs_error": 6.154261933616692e-08
+  },
+  "versions": {
+    "torch": "2.9.1",
+    "numpy": "2.4.2",
+    "scipy": "1.17.0",
+    "statsmodels": "0.14.6",
+    "linearmodels": "7.0",
+    "scikit-learn": "1.8.0",
+    "pytest": "9.0.2"
+  },
+  "baseline": "e6286e088913799dee52e334c95ea113645208c7",
+  "r_provenance": {
+    "R": "R version 4.5.0 (2025-04-11)",
+    "sandwich": "3.1.1",
+    "fixest": "0.12.1",
+    "command": "Rscript tests/reference/generate_r_fixtures.R",
+    "seed": 7342
+  }
+}
