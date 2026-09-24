@@ -51,6 +51,24 @@ class DynamicChoiceData:
             ValueError: If data shapes are inconsistent or contain invalid values
         """
         n_obs = len(self.states)
+        if n_obs == 0:
+            raise ValueError("Choice data must not be empty")
+        for name in (
+            "states",
+            "actions",
+            "next_states",
+            "individual_ids",
+            "time_periods",
+        ):
+            value = getattr(self, name)
+            if (
+                value.ndim != 1
+                or not torch.isfinite(value).all()
+                or (value.is_floating_point() and not torch.equal(value, value.round()))
+            ):
+                raise ValueError(f"{name} must be a finite integer vector")
+        if torch.any(self.next_states < 0):
+            raise ValueError("next_states must be nonnegative")
         if not all(
             len(x) == n_obs
             for x in [
@@ -126,6 +144,12 @@ class DynamicChoiceModel(ChoiceModel):
         self.utility_params: Optional[dict] = None
 
         super().__init__(optimizer=optimizer, maxiter=maxiter, tol=tol, device=device)
+        if n_states < 1 or n_choices < 2 or not 0 <= discount_factor < 1:
+            raise ValueError(
+                "Need positive state count, >=2 choices, and 0 <= discount_factor < 1"
+            )
+        if maxiter < 1 or tol <= 0:
+            raise ValueError("maxiter and tol must be positive")
         self.n_states = n_states
         self.n_choices = n_choices
         self.discount_factor = discount_factor
@@ -138,10 +162,20 @@ class DynamicChoiceModel(ChoiceModel):
     def to(self, device: Union[torch.device, str]) -> "DynamicChoiceModel":
         """Move model and transition matrix to specified device."""
         super().to(device)
-        if self.transition_matrix is not None:
+        if getattr(self, "transition_matrix", None) is not None:
             self.transition_matrix = self.transition_matrix.to(self.device)
         if self.utility_fn is not None and isinstance(self.utility_fn, nn.Module):
             self.utility_fn.to(self.device)
+        for name in (
+            "all_states_features",
+            "ccp_hat",
+            "inv_matrix",
+            "entropy_term",
+            "inversion_matrix",
+        ):
+            value = getattr(self, name, None)
+            if isinstance(value, torch.Tensor):
+                setattr(self, name, value.to(self.device))
         return self
 
     def fit(
@@ -155,9 +189,10 @@ class DynamicChoiceModel(ChoiceModel):
         Overriden to handle DynamicChoiceData.
         """
         if isinstance(data, DynamicChoiceData):
+            data.validate()
             data_dict = data.to_dict()
         else:
-            data_dict = data
+            data_dict = dict(data)
 
         if "states" not in data_dict or "actions" not in data_dict:
             raise ValueError("Data must contain 'states' and 'actions'")
@@ -166,6 +201,32 @@ class DynamicChoiceModel(ChoiceModel):
         for k, v in data_dict.items():
             if isinstance(v, torch.Tensor):
                 data_dict[k] = v.to(self.device)
+
+        if self.utility_fn is None or self.transition_matrix is None:
+            raise ValueError(
+                "Set flow utility and transition probabilities before fitting"
+            )
+        for name, upper in (("states", self.n_states), ("actions", self.n_choices)):
+            values = data_dict[name]
+            if (
+                values.ndim != 1
+                or not len(values)
+                or not torch.isfinite(values).all()
+                or torch.any(values < 0)
+                or torch.any(values >= upper)
+                or (
+                    values.is_floating_point()
+                    and not torch.equal(values, values.round())
+                )
+            ):
+                raise ValueError(f"{name} must contain valid integer indices")
+            data_dict[name] = values.long()
+        if len(data_dict["states"]) != len(data_dict["actions"]):
+            raise ValueError("states and actions must have the same length")
+        if "all_states_features" in data_dict:
+            self.all_states_features = (
+                data_dict["all_states_features"].detach().clone().to(self.device)
+            )
 
         # Gather initial params from utility_fn if not provided
         if init_params is None:
@@ -192,7 +253,13 @@ class DynamicChoiceModel(ChoiceModel):
 
         # Optimizer
         if self.optimizer_class == torch.optim.LBFGS:
-            optimizer = self.optimizer_class([current_params], max_iter=20)
+            optimizer = self.optimizer_class(
+                [current_params],
+                max_iter=20,
+                line_search_fn="strong_wolfe",
+                tolerance_grad=min(self.tol, 1e-8),
+                tolerance_change=1e-12,
+            )
         else:
             optimizer = self.optimizer_class([current_params])
 
@@ -202,7 +269,11 @@ class DynamicChoiceModel(ChoiceModel):
 
             def closure():
                 optimizer.zero_grad()
-                loss = self._negative_log_likelihood(current_params, data_dict)
+                loss = self._negative_log_likelihood(current_params, data_dict) / len(
+                    data_dict["states"]
+                )
+                if not torch.isfinite(loss):
+                    raise RuntimeError("Dynamic-choice objective is not finite")
                 loss.backward()
                 return loss
 
@@ -261,6 +332,10 @@ class DynamicChoiceModel(ChoiceModel):
                 f"Expected shape {expected_shape}, got {transition_matrix.shape}"
             )
 
+        if not torch.isfinite(transition_matrix).all() or torch.any(
+            transition_matrix < 0
+        ):
+            raise ValueError("Transition probabilities must be finite and nonnegative")
         # Verify probabilities sum to 1
         row_sums = transition_matrix.sum(dim=2)
         if not torch.allclose(row_sums, torch.ones_like(row_sums), atol=1e-5):
@@ -457,28 +532,108 @@ class DynamicChoiceModel(ChoiceModel):
     def _compute_fisher_information(self) -> torch.Tensor:
         raise NotImplementedError
 
-    def predict_proba(self, states: torch.Tensor) -> torch.Tensor:
-        if self.params is None:
-            raise ValueError("Model must be fitted before prediction")
-        raise NotImplementedError("Subclass must implement predict_proba")
+    def _flow_utility(self, params, data=None, policy_change=None):
+        theta, _ = self._unpack_params(params)
+        change = policy_change or {}
+        if set(change) - set(theta):
+            raise ValueError(f"Unknown policy parameters: {set(change) - set(theta)}")
+        theta = {
+            k: torch.as_tensor(change.get(k, v), dtype=params.dtype, device=self.device)
+            for k, v in theta.items()
+        }
+        if isinstance(self.utility_fn, ReplacementUtility):
+            return self.utility_fn(
+                torch.arange(self.n_states, device=self.device), **theta
+            )
+        if isinstance(self.utility_fn, LinearFlowUtility):
+            features = (data or {}).get(
+                "all_states_features", getattr(self, "all_states_features", None)
+            )
+            if features is None:
+                raise ValueError("LinearFlowUtility requires all_states_features")
+            if features.shape != (self.n_states, self.utility_fn.theta.shape[0]):
+                raise ValueError("all_states_features has incompatible shape")
+            return self.utility_fn(
+                features.to(device=self.device, dtype=params.dtype), **theta
+            )
+        raise NotImplementedError(
+            "Supported utilities are ReplacementUtility and LinearFlowUtility"
+        )
 
-    def simulate(
-        self,
-        initial_states: torch.Tensor,
-        n_periods: int,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        if self.params is None:
-            raise ValueError("Model must be fitted before simulation")
-        raise NotImplementedError("Subclass must implement simulate")
+    def predict_proba(self, states):
+        """Structural/equilibrium probabilities using fitted utility coefficients.
 
-    def counterfactual(
-        self,
-        states: torch.Tensor,
-        policy_change: dict,
-    ) -> dict:
-        if self.params is None:
-            raise ValueError("Model must be fitted before counterfactual analysis")
-        raise NotImplementedError("Subclass must implement counterfactual")
+        For Hotz-Miller this re-solves the Bellman equation; it does not return
+        the empirical first-stage CCPs or freeze them under policy changes.
+        """
+        flow = self._flow_utility(self._get_coef_params())
+        values = self.solve_value_functions(flow, tol=self.tol)
+        return self._compute_choice_probs(values, states.to(self.device))
+
+    def _simulate_values(self, initial_states, n_periods, values, rng=None):
+        if not isinstance(n_periods, int) or n_periods < 1:
+            raise ValueError("n_periods must be a positive integer")
+        initial_states = initial_states.to(self.device)
+        if (
+            initial_states.ndim != 1
+            or torch.any(initial_states < 0)
+            or torch.any(initial_states >= self.n_states)
+        ):
+            raise ValueError("initial_states must be valid state indices")
+        if initial_states.is_floating_point() and not torch.equal(
+            initial_states, initial_states.round()
+        ):
+            raise ValueError("initial_states must be integer indices")
+        current = initial_states.long()
+        paths = torch.empty(
+            (len(current), n_periods + 1), dtype=torch.long, device=self.device
+        )
+        actions = torch.empty(
+            (len(current), n_periods), dtype=torch.long, device=self.device
+        )
+        paths[:, 0] = current
+        probs = torch.softmax(values, dim=1)
+        for period in range(n_periods):
+            chosen = torch.multinomial(probs[current], 1, generator=rng).squeeze(1)
+            current = torch.multinomial(
+                self.transition_matrix[current, chosen], 1, generator=rng
+            ).squeeze(1)
+            actions[:, period] = chosen
+            paths[:, period + 1] = current
+        return paths, actions
+
+    def simulate(self, initial_states, n_periods, rng=None):
+        values = self.solve_value_functions(
+            self._flow_utility(self._get_coef_params()), tol=self.tol
+        )
+        return self._simulate_values(initial_states, n_periods, values, rng)
+
+    def counterfactual(self, data, policy_change, rng=None, *, n_periods=None):
+        """Re-solve and simulate altered utilities without mutating fitted state.
+
+        Starts with each individual's earliest observation. Default horizon is
+        the largest number of observed periods per individual, not max(time ID).
+        Pass n_periods explicitly for unbalanced-panel policy simulations.
+        """
+        data.validate()
+        values = self.solve_value_functions(
+            self._flow_utility(self._get_coef_params(), policy_change=policy_change),
+            tol=self.tol,
+        )
+        initial, counts = [], []
+        for identifier in torch.unique(data.individual_ids):
+            indices = torch.where(data.individual_ids == identifier)[0]
+            initial.append(data.states[indices[data.time_periods[indices].argmin()]])
+            counts.append(len(torch.unique(data.time_periods[indices])))
+        initial_states = torch.stack(initial).to(self.device)
+        horizon = max(counts) if n_periods is None else n_periods
+        states, actions = self._simulate_values(initial_states, horizon, values, rng)
+        return {
+            "simulated_states": states,
+            "simulated_actions": actions,
+            "counterfactual_v_bar": values,
+            "counterfactual_probs": torch.softmax(values, dim=1),
+        }
 
 
 class RustNFP(DynamicChoiceModel):
@@ -515,205 +670,17 @@ class RustNFP(DynamicChoiceModel):
         params: torch.Tensor,
         data: dict,
     ) -> torch.Tensor:
-        theta_dict, phi = self._unpack_params(params)
-
-        if isinstance(self.utility_fn, ReplacementUtility):
-            flow_utility = self.utility_fn.forward(
-                state=torch.arange(self.n_states, device=self.device),
-                theta_maintenance=theta_dict["theta_maintenance"],
-                theta_replacement_cost=theta_dict["theta_replacement_cost"],
-            )
-        elif isinstance(self.utility_fn, LinearFlowUtility):
-            if "all_states_features" not in data:
-                raise ValueError(
-                    "LinearFlowUtility requires 'all_states_features' in data for NFP likelihood calculation."
-                )
-            flow_utility = self.utility_fn.forward(
-                states=data["all_states_features"], theta=theta_dict["theta"]
-            )
-        else:
-            raise NotImplementedError(
-                "Flow utility computation not implemented for this utility function."
-            )
-
-        v_bar = self.solve_value_functions(
-            flow_utility=flow_utility, tol=self.tol, max_iter=10000
-        )
-        choice_probs = self._compute_choice_probs(v_bar, data["states"])
-        log_likelihood = torch.sum(
-            torch.log(
-                choice_probs[range(len(data["actions"])), data["actions"]] + 1e-10
-            )
-        )
-
         if self.estimate_transitions:
-            raise NotImplementedError(
-                "Transition parameter estimation not yet implemented for RustNFP."
-            )
+            raise NotImplementedError("Joint transition estimation is not implemented")
+        flow = self._flow_utility(params, data)
+        values = self.solve_value_functions(flow, tol=min(self.tol, 1e-8))
+        log_probs = torch.log_softmax(values[data["states"]], dim=1)
+        return -log_probs.gather(
+            1, data["actions"].to(device=self.device, dtype=torch.long)[:, None]
+        ).sum()
 
-        return -log_likelihood
-
-    def _compute_fisher_information(self) -> torch.Tensor:
-        raise NotImplementedError("Fisher information for RustNFP not yet implemented.")
-
-    def predict_proba(self, states: torch.Tensor) -> torch.Tensor:
-        if self.params is None:
-            raise ValueError("Model must be fitted before prediction")
-
-        theta_dict, _ = self._unpack_params(self._get_coef_params())
-
-        if isinstance(self.utility_fn, ReplacementUtility):
-            flow_utility = self.utility_fn.forward(
-                state=torch.arange(self.n_states, device=self.device),
-                theta_maintenance=theta_dict["theta_maintenance"],
-                theta_replacement_cost=theta_dict["theta_replacement_cost"],
-            )
-        elif isinstance(self.utility_fn, LinearFlowUtility):
-            if not hasattr(self, "all_states_features"):
-                raise ValueError(
-                    "LinearFlowUtility predict_proba requires 'all_states_features' to be set during fit."
-                )
-            flow_utility = self.utility_fn.forward(
-                states=self.all_states_features, theta=theta_dict["theta"]
-            )
-        else:
-            raise NotImplementedError(
-                "Predict_proba not implemented for this utility function."
-            )
-
-        v_bar = self.solve_value_functions(flow_utility=flow_utility, tol=self.tol)
-        return self._compute_choice_probs(v_bar, states)
-
-    def simulate(
-        self,
-        initial_states: torch.Tensor,
-        n_periods: int,
-        rng: Optional[torch.Generator] = None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        if self.params is None or self.transition_matrix is None:
-            raise ValueError(
-                "Model must be fitted and transition matrix set before simulation"
-            )
-
-        theta_dict, _ = self._unpack_params(self._get_coef_params())
-
-        if isinstance(self.utility_fn, ReplacementUtility):
-            flow_utility = self.utility_fn.forward(
-                state=torch.arange(self.n_states, device=self.device),
-                theta_maintenance=theta_dict["theta_maintenance"],
-                theta_replacement_cost=theta_dict["theta_replacement_cost"],
-            )
-        elif isinstance(self.utility_fn, LinearFlowUtility):
-            if not hasattr(self, "all_states_features"):
-                raise ValueError(
-                    "LinearFlowUtility simulate requires 'all_states_features' to be set during fit."
-                )
-            flow_utility = self.utility_fn.forward(
-                states=self.all_states_features, theta=theta_dict["theta"]
-            )
-        else:
-            raise NotImplementedError(
-                "Simulate not implemented for this utility function."
-            )
-
-        v_bar = self.solve_value_functions(flow_utility=flow_utility, tol=self.tol)
-        choice_probs_all_states = self._compute_choice_probs(
-            v_bar, torch.arange(self.n_states, device=self.device)
-        )
-
-        n_agents = len(initial_states)
-        states_path = torch.zeros(
-            n_agents, n_periods + 1, dtype=torch.long, device=self.device
-        )
-        actions_path = torch.zeros(
-            n_agents, n_periods, dtype=torch.long, device=self.device
-        )
-
-        current_states = initial_states.to(self.device)
-        states_path[:, 0] = current_states
-
-        for t in range(n_periods):
-            current_choice_probs = choice_probs_all_states[current_states]
-            chosen_actions = torch.multinomial(
-                current_choice_probs, 1, generator=rng
-            ).squeeze(1)
-            actions_path[:, t] = chosen_actions
-            next_state_probs = self.transition_matrix[current_states, chosen_actions, :]
-            current_states = torch.multinomial(
-                next_state_probs, 1, generator=rng
-            ).squeeze(1)
-            states_path[:, t + 1] = current_states
-
-        return states_path, actions_path
-
-    def counterfactual(
-        self,
-        data: DynamicChoiceData,
-        policy_change: dict,
-        rng: Optional[torch.Generator] = None,
-    ) -> dict:
-        if self.params is None or self.transition_matrix is None:
-            raise ValueError(
-                "Model must be fitted and transition matrix set before counterfactual analysis"
-            )
-
-        # This logic is shared with DynamicChoiceModel base if implemented generically,
-        # but here it's specific. Keeping as is for now.
-        # ... (omitted full replication of logic for brevity, assuming it's same as before)
-        # Re-using previous implementation logic:
-
-        if isinstance(self.utility_fn, ReplacementUtility):
-            original_maintenance_param = self.utility_fn.theta_maintenance.data.clone()
-            original_replacement_param = (
-                self.utility_fn.theta_replacement_cost.data.clone()
-            )
-
-            new_maintenance = policy_change.get(
-                "theta_maintenance", original_maintenance_param.item()
-            )
-            new_replacement_cost = policy_change.get(
-                "theta_replacement_cost", original_replacement_param.item()
-            )
-
-            counterfactual_flow_utility = self.utility_fn.forward(
-                state=torch.arange(self.n_states, device=self.device),
-                theta_maintenance=torch.tensor(
-                    new_maintenance, device=self.device, dtype=torch.float64
-                ),
-                theta_replacement_cost=torch.tensor(
-                    new_replacement_cost, device=self.device, dtype=torch.float64
-                ),
-            )
-
-            counterfactual_v_bar = self.solve_value_functions(
-                flow_utility=counterfactual_flow_utility, tol=self.tol
-            )
-
-            self.utility_fn.theta_maintenance.data = torch.tensor(
-                new_maintenance, device=self.device, dtype=torch.float64
-            )
-            self.utility_fn.theta_replacement_cost.data = torch.tensor(
-                new_replacement_cost, device=self.device, dtype=torch.float64
-            )
-
-            initial_states_for_sim = data.states.unique()
-            cf_states, cf_actions = self.simulate(
-                initial_states_for_sim,
-                n_periods=data.time_periods.max().item(),
-                rng=rng,
-            )
-
-            self.utility_fn.theta_maintenance.data = original_maintenance_param
-            self.utility_fn.theta_replacement_cost.data = original_replacement_param
-
-            return {
-                "simulated_states": cf_states,
-                "simulated_actions": cf_actions,
-                "counterfactual_v_bar": counterfactual_v_bar,
-            }
-
-        # ... LinearFlowUtility case ...
-        return {}
+    def _compute_fisher_information(self):
+        raise NotImplementedError("RustNFP inference is not implemented")
 
 
 class HotzMillerCCP(DynamicChoiceModel):
@@ -770,6 +737,21 @@ class HotzMillerCCP(DynamicChoiceModel):
         # M(x, x') = sum_a P_hat(a|x) * P(x'|x,a)
         # ccp_hat: (n_states, n_choices)
         # transition: (n_states, n_choices, n_states)
+        self.ccp_hat = self.ccp_hat.to(
+            device=self.device, dtype=self.transition_matrix.dtype
+        )
+        if (
+            self.ccp_hat.shape != (self.n_states, self.n_choices)
+            or not torch.isfinite(self.ccp_hat).all()
+            or torch.any(self.ccp_hat < 0)
+            or not torch.allclose(
+                self.ccp_hat.sum(1),
+                torch.ones(self.n_states, device=self.device, dtype=self.ccp_hat.dtype),
+            )
+        ):
+            raise ValueError(
+                "CCPs must be finite probability rows with shape (n_states,n_choices)"
+            )
         M = torch.einsum("xa,xay->xy", self.ccp_hat, self.transition_matrix)
 
         # I - beta * M
@@ -777,12 +759,14 @@ class HotzMillerCCP(DynamicChoiceModel):
         A = I - self.discount_factor * M
 
         # Invert
-        self.inv_matrix = torch.linalg.inv(A)
+        self.inversion_matrix = A
+        self.inv_matrix = (
+            None  # retained attribute; solve the system instead of inverting
+        )
 
         # Entropy term: sum_a P_hat(a|x) * ln P_hat(a|x)
         # Avoid log(0)
-        safe_ccp = self.ccp_hat + 1e-10
-        self.entropy_term = torch.sum(self.ccp_hat * torch.log(safe_ccp), dim=1)
+        self.entropy_term = torch.special.xlogy(self.ccp_hat, self.ccp_hat).sum(dim=1)
 
     def fit(
         self,
@@ -828,7 +812,9 @@ class HotzMillerCCP(DynamicChoiceModel):
         rhs = exp_utility - self.entropy_term
 
         # 4. Invert to get integrated value function V_bar
-        V_bar_integrated = self.inv_matrix.to(dtype=rhs.dtype) @ rhs
+        V_bar_integrated = torch.linalg.solve(
+            self.inversion_matrix.to(dtype=rhs.dtype), rhs
+        )
 
         return V_bar_integrated
 
@@ -840,25 +826,7 @@ class HotzMillerCCP(DynamicChoiceModel):
         """
         Compute pseudo-likelihood using inverted CCPs.
         """
-        theta_dict, _ = self._unpack_params(params)
-
-        # 1. Compute flow utility
-        if isinstance(self.utility_fn, ReplacementUtility):
-            flow_utility = self.utility_fn.forward(
-                state=torch.arange(self.n_states, device=self.device),
-                theta_maintenance=theta_dict["theta_maintenance"],
-                theta_replacement_cost=theta_dict["theta_replacement_cost"],
-            )
-        elif isinstance(self.utility_fn, LinearFlowUtility):
-            if "all_states_features" not in data:
-                raise ValueError(
-                    "LinearFlowUtility requires 'all_states_features' in data."
-                )
-            flow_utility = self.utility_fn.forward(
-                states=data["all_states_features"], theta=theta_dict["theta"]
-            )
-        else:
-            raise NotImplementedError
+        flow_utility = self._flow_utility(params, data)
 
         # Invert to get integrated value function V_bar
         V_bar_integrated = self.invert_ccps(flow_utility)
@@ -879,15 +847,10 @@ class HotzMillerCCP(DynamicChoiceModel):
         # Compute choice probabilities from implied v_bar
         # P_model(a|x) = exp(v_bar_implied) / sum exp
 
-        choice_probs = self._compute_choice_probs(v_bar_implied, data["states"])
-
-        log_likelihood = torch.sum(
-            torch.log(
-                choice_probs[range(len(data["actions"])), data["actions"]] + 1e-10
-            )
-        )
-
-        return -log_likelihood
+        log_probs = torch.log_softmax(v_bar_implied[data["states"]], dim=1)
+        return -log_probs.gather(
+            1, data["actions"].to(device=self.device, dtype=torch.long)[:, None]
+        ).sum()
 
     def _compute_fisher_information(self) -> torch.Tensor:
         raise NotImplementedError(
@@ -949,6 +912,7 @@ class LinearFlowUtility(nn.Module):
             `(n_obs, n_choices)` when `choice is None`.
         """
         _theta = theta if theta is not None else self.theta
+        states = states.to(device=_theta.device, dtype=_theta.dtype)
         if choice is not None:
             return states @ _theta[:, choice]
         else:
