@@ -1,12 +1,7 @@
-"""
-Conditional Choice Probability (CCP) estimation methods.
+"""Empirical conditional choice probabilities for discrete state spaces."""
 
-This module provides estimators for P(a|x) from observed data,
-which are used as the first stage in CCP-based dynamic model estimation.
-"""
-
-import torch
 from typing import Optional, Literal
+import torch
 
 
 def estimate_ccps(
@@ -17,38 +12,38 @@ def estimate_ccps(
     method: Literal["frequency"] = "frequency",
     bandwidth: Optional[float] = None,
 ) -> torch.Tensor:
+    """Frequency CCPs on the input device; unobserved states use uniform rows.
+
+    ``bandwidth`` is retained for compatibility and unused by this estimator.
+    Zero empirical probabilities are permitted; inversion uses 0 log 0 = 0.
     """
-    Estimate Conditional Choice Probabilities P(a|x) from data.
-
-    Args:
-        states: (n_obs,) observed states
-        actions: (n_obs,) observed actions
-        n_states: Number of discrete states
-        n_choices: Number of discrete actions
-        method: Estimation method ("frequency")
-        bandwidth: Smoothing parameter (not used for frequency)
-
-    Returns:
-        ccp_hat: (n_states, n_choices) estimated CCPs
-                 ccp_hat[x, a] = P(a|x)
-    """
-    if method == "frequency":
-        ccp_hat = torch.zeros(n_states, n_choices)
-        state_counts = torch.bincount(states, minlength=n_states)
-
-        # Avoid division by zero for unobserved states
-        # If a state is never observed, we can't estimate CCPs from data.
-        # Uniform prior is a safe fallback or handle as NaN.
-        # Here we use uniform for unobserved states.
-
-        for x in range(n_states):
-            if state_counts[x] > 0:
-                mask = states == x
-                action_counts = torch.bincount(actions[mask], minlength=n_choices)
-                ccp_hat[x, :] = action_counts / action_counts.sum()
-            else:
-                ccp_hat[x, :] = 1.0 / n_choices
-
-        return ccp_hat
-    else:
+    if method != "frequency":
         raise NotImplementedError(f"Method {method} not implemented")
+    if (
+        n_states < 1
+        or n_choices < 1
+        or states.ndim != 1
+        or states.shape != actions.shape
+    ):
+        raise ValueError(
+            "Expected matching index vectors and positive state/choice counts"
+        )
+    for values, size in ((states, n_states), (actions, n_choices)):
+        if (
+            not torch.isfinite(values).all()
+            or torch.any(values < 0)
+            or torch.any(values >= size)
+            or (values.is_floating_point() and not torch.equal(values, values.round()))
+        ):
+            raise ValueError("State/action indices must be integers in range")
+    actions = actions.to(device=states.device, dtype=torch.long)
+    joint = states.long() * n_choices + actions
+    counts = (
+        torch.bincount(joint, minlength=n_states * n_choices)
+        .reshape(n_states, n_choices)
+        .to(torch.get_default_dtype())
+    )
+    totals = counts.sum(1, keepdim=True)
+    return torch.where(
+        totals > 0, counts / totals.clamp_min(1), torch.full_like(counts, 1 / n_choices)
+    )

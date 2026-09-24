@@ -1,515 +1,332 @@
+"""Two-step GMM with SciPy/Torch objectives and shared sandwich inference.
+
+Moment functions return an (n, q) array, not necessarily linear-IV moments.
+Covariances use the uncentered second moment with divisor n (HC0 convention).
+``iid=False`` selects Bartlett/Newey-West HAC for both weighting and inference.
+``vtheta_`` retains the legacy asymptotic scale; ``covariance_ = vtheta_ / n``.
 """
-Generalized Method of Moments (GMM) estimators.
 
-This module provides a backend-dispatching `GMMEstimator` API and concrete
-SciPy and PyTorch implementations for two-step and continuously updated
-moment-based estimation.
-"""
-
-from abc import ABC, abstractmethod
-from typing import Callable, Optional, Union
-
+from typing import Callable
 import numpy as np
 import pandas as pd
-import scipy
+from scipy import optimize, stats
 import torch
 import torchmin
 
 
-class GMMEstimator(ABC):
-    """Abstract base class for GMM estimators."""
+def moment_covariance(moments, max_lags=0):
+    """Uncentered long-run covariance of observation-level moment vectors."""
+    g = np.asarray(moments, dtype=float)
+    if g.ndim != 2 or len(g) < 2 or g.shape[1] == 0 or not np.isfinite(g).all():
+        raise ValueError("moments must be finite with shape (n>=2, q>=1)")
+    if not isinstance(max_lags, (int, np.integer)) or not 0 <= max_lags < len(g):
+        raise ValueError("max_lags must be an integer in [0, n)")
+    omega = g.T @ g / len(g)
+    for lag in range(1, max_lags + 1):
+        cross = g[lag:].T @ g[:-lag] / len(g)
+        omega += (1 - lag / (max_lags + 1)) * (cross + cross.T)
+    return omega
+
+
+def numerical_jacobian(function, theta):
+    """Central finite differences with scale-aware steps, for NumPy callbacks."""
+    step = np.cbrt(np.finfo(float).eps) * np.maximum(1.0, np.abs(theta))
+    eye = np.eye(len(theta))
+    return np.column_stack(
+        [
+            (function(theta + eye[j] * step[j]) - function(theta - eye[j] * step[j]))
+            / (2 * step[j])
+            for j in range(len(theta))
+        ]
+    )
+
+
+class GMMEstimator:
+    """Dispatch to a SciPy or Torch GMM implementation.
+
+    ``weighting_matrix`` is 'optimal' (two-step), 'identity', or a fixed
+    symmetric positive-definite matrix. ``init_params`` in fit defaults to
+    zeros with x.shape[1] entries; pass it for other parameter dimensions.
+    """
 
     def __new__(
         cls,
         moment_cond: Callable,
-        weighting_matrix: Union[str, np.ndarray] = "optimal",
-        backend: str = "scipy",
+        weighting_matrix="optimal",
+        backend="scipy",
         **kwargs,
     ):
-        backend = backend.lower()
-        estimator = _BACKENDS.get(backend)
-        if estimator is None:
-            raise ValueError(
-                f"Backend {backend} is not supported. "
-                f"Supported backends are: {list(_BACKENDS.keys())}"
-            )
-        return super(GMMEstimator, cls).__new__(estimator)
+        if cls is GMMEstimator:
+            if backend.lower() not in _BACKENDS:
+                raise ValueError(f"Unsupported backend: {backend}")
+            cls = _BACKENDS[backend.lower()]
+        return object.__new__(cls)
 
     def __init__(
-        self,
-        moment_cond: Callable,
-        weighting_matrix: Union[str, np.ndarray] = "optimal",
-        backend: str = "scipy",
+        self, moment_cond, weighting_matrix="optimal", backend="scipy", device=None
     ):
         self.moment_cond = moment_cond
+        if isinstance(weighting_matrix, str) and weighting_matrix not in {
+            "optimal",
+            "identity",
+        }:
+            raise ValueError(
+                "weighting_matrix must be 'optimal', 'identity', or a matrix"
+            )
         self.weighting_matrix = weighting_matrix
+        self.device = torch.device(
+            device or ("cuda" if torch.cuda.is_available() else "cpu")
+        )
+        self.theta_ = self.std_errors_ = self.W_ = None
 
-    @abstractmethod
-    def gmm_objective(self, beta: np.ndarray) -> float:
-        pass
+    def _numpy(self, value):
+        return (
+            value.detach().cpu().numpy()
+            if isinstance(value, torch.Tensor)
+            else np.asarray(value)
+        )
 
-    @abstractmethod
-    def optimal_weighting_matrix(self, moments: np.ndarray) -> np.ndarray:
-        pass
+    def _convert(self, value):
+        if isinstance(self, GMMEstimatorTorch):
+            return torch.as_tensor(value, dtype=torch.float64, device=self.device)
+        return np.asarray(value, dtype=float)
 
-    @abstractmethod
+    def _moments(self, theta):
+        return self.moment_cond(self.z_, self.y_, self.x_, theta)
+
+    def gmm_objective(self, beta):
+        moments = self._moments(beta)
+        avg = (
+            moments.mean(dim=0)
+            if isinstance(moments, torch.Tensor)
+            else moments.mean(axis=0)
+        )
+        return avg @ self.W_ @ avg
+
+    def _compute_hac_covariance(self, moments, max_lags=None):
+        if max_lags is None:
+            max_lags = min(
+                len(moments) - 1, int(np.floor(4 * (len(moments) / 100) ** (2 / 9)))
+            )
+        return moment_covariance(moments, max_lags)
+
+    def optimal_weighting_matrix(self, moments):
+        omega = moment_covariance(self._numpy(moments), getattr(self, "max_lags_", 0))
+        # A rank-deficient moment set is not repaired by silently inventing a ridge.
+        if np.linalg.matrix_rank(omega) < len(omega):
+            raise ValueError("Moment covariance is singular; remove redundant moments")
+        return self._convert(np.linalg.inv(omega))
+
     def fit(
         self,
-        z: np.ndarray,
-        y: np.ndarray,
-        x: np.ndarray,
-        verbose: bool = False,
-        fit_method: Optional[str] = None,
-        iid: bool = True,
-    ) -> None:
-        pass
-
-    @abstractmethod
-    def jacobian_moment_cond(self) -> np.ndarray:
-        pass
-
-    def summary(self, prec: int = 4, alpha: float = 0.05) -> pd.DataFrame:
-        if not hasattr(self, "theta_") and not hasattr(self, "std_errors_"):
-            raise ValueError(
-                "Estimator not fitted yet. Make sure you call `fit()` before `summary()`."
+        z,
+        y,
+        x,
+        verbose=False,
+        fit_method=None,
+        iid=True,
+        two_step=True,
+        *,
+        init_params=None,
+        max_lags=None,
+        tol=1e-9,
+        maxiter=2000,
+    ):
+        z, y, x = [np.asarray(self._numpy(a), dtype=float) for a in (z, y, x)]
+        if (
+            x.ndim != 2
+            or z.ndim != 2
+            or y.shape != (len(x),)
+            or len(z) != len(x)
+            or len(x) < 2
+        ):
+            raise ValueError("Expected x (n,p), z (n,q), and y (n,) with n>=2")
+        if not all(np.isfinite(a).all() for a in (x, y, z)):
+            raise ValueError("Inputs must be finite")
+        self.n_ = len(x)
+        start = (
+            np.zeros(x.shape[1])
+            if init_params is None
+            else np.asarray(self._numpy(init_params), dtype=float)
+        )
+        if start.ndim != 1 or not len(start) or not np.isfinite(start).all():
+            raise ValueError("init_params must be a nonempty finite vector")
+        self.k_ = len(start)
+        self.z_, self.y_, self.x_ = [self._convert(a) for a in (z, y, x)]
+        self.max_lags_ = (
+            0
+            if iid
+            else (
+                min(len(x) - 1, int(np.floor(4 * (len(x) / 100) ** (2 / 9))))
+                if max_lags is None
+                else max_lags
             )
+        )
+        initial = self._numpy(self._moments(self._convert(start)))
+        moment_covariance(initial, self.max_lags_)  # validate dimensions and lags
+        if len(initial) != self.n_ or initial.shape[1] < self.k_:
+            raise ValueError("Need at least as many moments as parameters, with n rows")
+        q = initial.shape[1]
+        mode = (
+            self.weighting_matrix if isinstance(self.weighting_matrix, str) else "fixed"
+        )
+        weight = (
+            np.eye(q)
+            if mode != "fixed"
+            else np.asarray(self._numpy(self.weighting_matrix), dtype=float)
+        )
+        if (
+            weight.shape != (q, q)
+            or not np.isfinite(weight).all()
+            or not np.allclose(weight, weight.T)
+            or np.linalg.eigvalsh(weight).min() <= 0
+        ):
+            raise ValueError(
+                "Weight matrix must be finite, symmetric positive definite, and q-by-q"
+            )
+        self.W_ = self._convert(weight)
+        self.theta_ = self.std_errors_ = None
+        result = self._optimize(start, fit_method, verbose, tol, maxiter)
+        if mode == "optimal" and two_step:
+            self.W_ = self.optimal_weighting_matrix(
+                self._moments(self._convert(self._numpy(result.x)))
+            )
+            result = self._optimize(
+                self._numpy(result.x), fit_method, verbose, tol, maxiter
+            )
+        self.result_ = result
+        self.theta_ = self._numpy(result.x).copy()
+        moments = self._numpy(self._moments(self._convert(self.theta_)))
+        self.Omega_ = moment_covariance(moments, self.max_lags_)
+        self.Gamma_ = self.jacobian_moment_cond()
+        w = self._numpy(self.W_)
+        bread_inv = self.Gamma_.T @ w @ self.Gamma_
+        if np.linalg.matrix_rank(bread_inv) < self.k_:
+            raise ValueError("Parameters are not locally identified by these moments")
+        bread = np.linalg.inv(bread_inv)
+        middle = self.Gamma_.T @ w @ self.Omega_ @ w @ self.Gamma_
+        self.vtheta_ = bread @ middle @ bread
+        self.covariance_ = self.vtheta_ / self.n_
+        self.std_errors_ = np.sqrt(np.maximum(0.0, np.diag(self.covariance_)))
+        return self
+
+    def jacobian_moment_cond(self):
+        if self.theta_ is None:
+            raise ValueError("Model must be fitted first")
+        if isinstance(self, GMMEstimatorTorch):
+            theta = self._convert(self.theta_).requires_grad_(True)
+            jac = torch.autograd.functional.jacobian(
+                lambda b: self._moments(b).mean(dim=0), theta
+            )
+            self.jac_est_ = self._numpy(jac)
+        else:
+            self.jac_est_ = numerical_jacobian(
+                lambda b: self._moments(b).mean(axis=0), self.theta_
+            )
+        return self.jac_est_
+
+    def summary(self, prec=4, alpha=0.05):
+        if self.theta_ is None or self.std_errors_ is None:
+            raise ValueError("Estimator not fitted; call fit() first")
+        if not 0 < alpha < 1:
+            raise ValueError("alpha must be between 0 and 1")
+        z = self.theta_ / self.std_errors_
+        bound = stats.norm.ppf(1 - alpha / 2) * self.std_errors_
         return pd.DataFrame(
             {
-                "coef": np.round(self.theta_, prec),
-                "std err": np.round(self.std_errors_, prec),
-                "t": np.round(self.theta_ / self.std_errors_, prec),
-                "p-value": np.round(
-                    2
-                    * (
-                        1 - scipy.stats.norm.cdf(np.abs(self.theta_ / self.std_errors_))
-                    ),
-                    prec,
-                ),
-                f"[{alpha / 2}": np.round(
-                    self.theta_
-                    - scipy.stats.norm.ppf(1 - alpha / 2) * self.std_errors_,
-                    prec,
-                ),
-                f"{1 - alpha / 2}]": np.round(
-                    self.theta_
-                    + scipy.stats.norm.ppf(1 - alpha / 2) * self.std_errors_,
-                    prec,
-                ),
+                "coef": self.theta_,
+                "std err": self.std_errors_,
+                "t": z,
+                "p-value": 2 * stats.norm.sf(np.abs(z)),
+                f"[{alpha/2}": self.theta_ - bound,
+                f"{1-alpha/2}]": self.theta_ + bound,
             }
-        )
+        ).round(prec)
 
 
 class GMMEstimatorScipy(GMMEstimator):
-    """Class to create GMM estimator using scipy"""
-
-    def __init__(
-        self,
-        moment_cond: Callable,
-        weighting_matrix: Union[str, np.ndarray] = "optimal",
-        backend: str = "scipy",
-    ):
-        super().__init__(moment_cond, weighting_matrix, backend)
-        self.z_: Optional[np.ndarray] = None
-        self.y_: Optional[np.ndarray] = None
-        self.x_: Optional[np.ndarray] = None
-        self.n_: Optional[int] = None
-        self.k_: Optional[int] = None
-        self.W_: Optional[np.ndarray] = None
-        self.theta_: Optional[np.ndarray] = None
-        self.Gamma_: Optional[np.ndarray] = None
-        self.vtheta_: Optional[np.ndarray] = None
-        self.std_errors_: Optional[np.ndarray] = None
-        self.Omega_: Optional[np.ndarray] = None
-
-    def gmm_objective(self, beta: np.ndarray) -> float:
-        moments = self.moment_cond(self.z_, self.y_, self.x_, beta)
-        if self.weighting_matrix == "optimal":
-            if not hasattr(self, "W_") or self.W_ is None:
-                # Use identity matrix for first stage, then update
-                self.W_ = np.eye(moments.shape[1])
-        elif isinstance(self.weighting_matrix, np.ndarray):
-            self.W_ = self.weighting_matrix
-        else:
-            self.W_ = np.eye(moments.shape[1])
-        mavg = moments.mean(axis=0)
-        return float(mavg.T @ self.W_ @ mavg)
-
-    def optimal_weighting_matrix(self, moments: np.ndarray) -> np.ndarray:
-        # Compute sample covariance matrix of moments: Omega = E[g_i g_i']
-        moment_cov = np.cov(moments.T, ddof=1)
-        # Handle numerical issues with small eigenvalues
-        eigenvals, eigenvecs = np.linalg.eigh(moment_cov)
-        eigenvals = np.maximum(eigenvals, 1e-12)  # Regularize small eigenvalues
-        moment_cov_reg = eigenvecs @ np.diag(eigenvals) @ eigenvecs.T
-        return np.linalg.inv(moment_cov_reg)
-
-    def fit(
-        self,
-        z: np.ndarray,
-        y: np.ndarray,
-        x: np.ndarray,
-        verbose: bool = False,
-        fit_method: Optional[str] = None,
-        iid: bool = True,
-        two_step: bool = True,
-    ) -> None:
-        if fit_method is None:
-            fit_method = "L-BFGS-B"
-        self.z_, self.y_, self.x_ = z, y, x
-        self.n_, self.k_ = x.shape
-
-        # First stage: use identity weighting matrix
-        self.W_ = np.eye(self.z_.shape[1])  # Number of instruments
-        result = scipy.optimize.minimize(
+    def _optimize(self, start, method, verbose, tol, maxiter):
+        result = optimize.minimize(
             self.gmm_objective,
-            x0=np.random.rand(self.k_),
-            method=fit_method,
-            options={"disp": verbose},
+            start,
+            method=method or "BFGS",
+            jac=lambda b: numerical_jacobian(
+                lambda p: np.atleast_1d(self.gmm_objective(p)), b
+            ).ravel(),
+            tol=tol,
+            options={"maxiter": maxiter},
         )
-        theta_first = result.x
-
-        # Two-step GMM if optimal weighting requested
-        if self.weighting_matrix == "optimal" and two_step:
-            # Compute optimal weighting matrix using first-stage residuals
-            moments_first = self.moment_cond(self.z_, self.y_, self.x_, theta_first)
-            self.W_ = self.optimal_weighting_matrix(moments_first)
-
-            # Second stage optimization
-            result = scipy.optimize.minimize(
-                self.gmm_objective,
-                x0=theta_first,
-                method=fit_method,
-                options={"disp": verbose},
-            )
-
-        self.theta_ = result.x
-
-        # Compute standard errors
-        try:
-            moments_final = self.moment_cond(self.z_, self.y_, self.x_, self.theta_)
-            self.Gamma_ = self.jacobian_moment_cond()
-
-            # Compute robust covariance matrix
-            if iid:
-                # IID case: Omega = sigma^2 * I (for IV regression)
-                self.Omega_ = np.cov(moments_final.T, ddof=1)
-            else:
-                # HAC-robust covariance
-                self.Omega_ = self._compute_hac_covariance(moments_final)
-
-            # Sandwich formula: (G'WG)^{-1} G'W Omega W G (G'WG)^{-1}
-            GWG_inv = np.linalg.inv(self.Gamma_.T @ self.W_ @ self.Gamma_)
-            if iid and np.allclose(self.W_, np.linalg.inv(self.Omega_), atol=1e-6):
-                # Efficient case: W = Omega^{-1}
-                self.vtheta_ = GWG_inv
-            else:
-                # General sandwich formula
-                middle = self.Gamma_.T @ self.W_ @ self.Omega_ @ self.W_ @ self.Gamma_
-                self.vtheta_ = GWG_inv @ middle @ GWG_inv
-
-            self.std_errors_ = np.sqrt(np.diag(self.vtheta_) / self.n_)
-        except Exception as e:
-            if verbose:
-                print(f"Warning: Could not compute standard errors: {e}")
-            self.std_errors_ = None
-
-    def jacobian_moment_cond(self) -> np.ndarray:
-        # For IV moment condition g(z,y,x,beta) = z * (y - x*beta)
-        # Jacobian w.r.t. beta is -z'x / n
-        self.jac_est_ = -self.z_.T @ self.x_ / self.n_
-        return self.jac_est_
-
-    def _compute_hac_covariance(
-        self, moments: np.ndarray, max_lags: int = None
-    ) -> np.ndarray:
-        """Compute HAC-robust covariance matrix using Newey-West estimator"""
-        n, k = moments.shape
-        if max_lags is None:
-            max_lags = int(np.floor(4 * (n / 100) ** (2 / 9)))  # Rule of thumb
-
-        # Center moments
-        moments_centered = moments - moments.mean(axis=0)
-
-        # Compute covariance matrix
-        Omega = np.zeros((k, k))
-
-        # Lag 0 (variance)
-        Omega += moments_centered.T @ moments_centered / n
-
-        # Higher order lags with Bartlett kernel
-        for lag in range(1, max_lags + 1):
-            weight = 1 - lag / (max_lags + 1)  # Bartlett kernel
-            gamma_lag = np.zeros((k, k))
-
-            for t in range(lag, n):
-                gamma_lag += np.outer(moments_centered[t], moments_centered[t - lag])
-
-            gamma_lag /= n
-            Omega += weight * (gamma_lag + gamma_lag.T)
-
-        return Omega
+        gradient = numerical_jacobian(
+            lambda p: np.atleast_1d(self.gmm_objective(p)), result.x
+        )
+        if not np.isfinite(result.fun) or (
+            not result.success
+            and np.linalg.norm(gradient, ord=np.inf) > max(1e-6, 10 * tol)
+        ):
+            raise RuntimeError(f"GMM optimization failed: {result.message}")
+        return result
 
     @staticmethod
-    def iv_moment(
-        z: np.ndarray, y: np.ndarray, x: np.ndarray, beta: np.ndarray
-    ) -> np.ndarray:
-        return z * (y - x @ beta)[:, np.newaxis]
+    def iv_moment(z, y, x, beta):
+        return z * (y - x @ beta)[:, None]
 
 
 class GMMEstimatorTorch(GMMEstimator):
-    """Class to create GMM estimator using torch
+    def _optimize(self, start, method, verbose, tol, maxiter):
+        if method is None or method == "l-bfgs":
+            from types import SimpleNamespace
 
-    Parameters
-    ----------
-    moment_cond : Callable
-        Moment condition function
-    weighting_matrix : str or torch.Tensor, default="optimal"
-        Weighting matrix specification
-    backend : str, default="torch"
-        Backend to use (must be "torch")
-    device : torch.device, str, or None, default=None
-        Device to use for computations. If None, automatically selects
-        'cuda' if available, otherwise 'cpu'.
-    """
-
-    def __init__(
-        self,
-        moment_cond: Callable,
-        weighting_matrix: Union[str, torch.Tensor] = "optimal",
-        backend: str = "torch",
-        device: Optional[Union[torch.device, str]] = None,
-    ):
-        super().__init__(moment_cond, weighting_matrix, backend)
-        # Auto-detect device if not specified
-        if device is None:
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        else:
-            self.device = torch.device(device) if isinstance(device, str) else device
-
-        self.z_: Optional[torch.Tensor] = None
-        self.y_: Optional[torch.Tensor] = None
-        self.x_: Optional[torch.Tensor] = None
-        self.n_: Optional[int] = None
-        self.k_: Optional[int] = None
-        self.W_: Optional[torch.Tensor] = None
-        self.theta_: Optional[torch.Tensor] = None
-        self.Gamma_: Optional[np.ndarray] = None
-        self.vtheta_: Optional[np.ndarray] = None
-        self.std_errors_: Optional[np.ndarray] = None
-        self.Omega_: Optional[np.ndarray] = None
-
-    def gmm_objective(self, beta: torch.Tensor) -> torch.Tensor:
-        moments = self.moment_cond(self.z_, self.y_, self.x_, beta)
-        if self.weighting_matrix == "optimal":
-            if not hasattr(self, "W_") or self.W_ is None:
-                # Use identity matrix for first stage
-                self.W_ = torch.eye(
-                    moments.shape[1], dtype=moments.dtype, device=moments.device
-                )
-        elif isinstance(self.weighting_matrix, torch.Tensor):
-            self.W_ = self.weighting_matrix.to(moments.device)
-        else:
-            self.W_ = torch.eye(
-                moments.shape[1], dtype=moments.dtype, device=moments.device
+            p = self._convert(start).clone().requires_grad_(True)
+            optimizer = torch.optim.LBFGS(
+                [p],
+                max_iter=maxiter,
+                tolerance_grad=tol,
+                tolerance_change=np.finfo(float).eps,
+                line_search_fn="strong_wolfe",
             )
 
-        mavg = moments.mean(dim=0)
-        return torch.matmul(
-            mavg.unsqueeze(0), torch.matmul(self.W_, mavg.unsqueeze(-1))
-        ).squeeze()
+            def closure():
+                optimizer.zero_grad()
+                loss = self.gmm_objective(p)
+                loss.backward()
+                return loss
 
-    def optimal_weighting_matrix(self, moments: torch.Tensor) -> torch.Tensor:
-        # Convert to numpy for covariance computation, then back to torch
-        moments_np = moments.detach().cpu().numpy()
-        moment_cov = np.cov(moments_np.T, ddof=1)
-
-        # Handle numerical issues
-        eigenvals, eigenvecs = np.linalg.eigh(moment_cov)
-        eigenvals = np.maximum(eigenvals, 1e-12)
-        moment_cov_reg = eigenvecs @ np.diag(eigenvals) @ eigenvecs.T
-
-        # Convert back to torch tensor on same device as input
-        W_inv = torch.tensor(
-            np.linalg.inv(moment_cov_reg), dtype=moments.dtype, device=moments.device
-        )
-        return W_inv
-
-    def fit(
-        self,
-        z: np.ndarray,
-        y: np.ndarray,
-        x: np.ndarray,
-        verbose: bool = False,
-        fit_method: Optional[str] = None,
-        iid: bool = True,
-        two_step: bool = True,
-    ) -> None:
-        """Fit the GMM estimator.
-
-        Parameters
-        ----------
-        z : np.ndarray
-            Instruments
-        y : np.ndarray
-            Outcomes
-        x : np.ndarray
-            Covariates
-        verbose : bool, default=False
-            Print optimization progress
-        fit_method : str, optional
-            Optimization method (default: "l-bfgs")
-        iid : bool, default=True
-            Use IID covariance structure
-        two_step : bool, default=True
-            Use two-step GMM with optimal weighting
-        """
-        if fit_method is None:
-            fit_method = "l-bfgs"
-
-        # Convert to tensors on self.device
-        self.z_ = torch.tensor(z, dtype=torch.float64, device=self.device)
-        self.y_ = torch.tensor(y, dtype=torch.float64, device=self.device)
-        self.x_ = torch.tensor(x, dtype=torch.float64, device=self.device)
-        self.n_, self.k_ = x.shape
-
-        # First stage: identity weighting
-        self.W_ = torch.eye(self.z_.shape[1], dtype=torch.float64, device=self.device)
-        beta_init = torch.tensor(
-            np.random.rand(self.k_),
-            dtype=torch.float64,
-            device=self.device,
-            requires_grad=True,
-        )
-
-        result = torchmin.minimize(
-            self.gmm_objective, beta_init, method=fit_method, tol=1e-5, disp=verbose
-        )
-        theta_first = result.x
-
-        # Two-step GMM if optimal weighting requested
-        if self.weighting_matrix == "optimal" and two_step:
-            # Compute optimal weighting matrix using first-stage residuals
-            moments_first = self.moment_cond(self.z_, self.y_, self.x_, theta_first)
-            self.W_ = self.optimal_weighting_matrix(moments_first)
-
-            # Second stage optimization
+            optimizer.step(closure)
+            loss = closure()
+            result = SimpleNamespace(
+                x=p.detach(),
+                fun=loss.detach(),
+                success=bool(p.grad.abs().max() <= max(1e-6, 10 * tol)),
+                message="LBFGS gradient tolerance not met",
+            )
+        else:
             result = torchmin.minimize(
                 self.gmm_objective,
-                theta_first,
-                method=fit_method,
-                tol=1e-5,
+                self._convert(start),
+                method=method,
+                tol=tol,
+                max_iter=maxiter,
                 disp=verbose,
             )
+        p = result.x.detach().requires_grad_(True)
+        gradient = torch.autograd.grad(self.gmm_objective(p), p)[0]
+        if not torch.isfinite(result.fun) or (
+            not result.success and float(gradient.abs().max()) > max(1e-6, 10 * tol)
+        ):
+            raise RuntimeError(f"GMM optimization failed: {result.message}")
+        return result
 
-        self.theta_ = result.x.detach().cpu().numpy()
-
-        # Compute standard errors
-        try:
-            moments_final = self.moment_cond(
-                self.z_,
-                self.y_,
-                self.x_,
-                torch.tensor(
-                    self.theta_,
-                    device=self.device,
-                ),
-            )
-            self.Gamma_ = self.jacobian_moment_cond()
-
-            # Convert W to numpy for standard error computation
-            W_np = self.W_.detach().cpu().numpy()
-
-            # Compute robust covariance matrix
-            moments_np = moments_final.detach().cpu().numpy()
-            if iid:
-                self.Omega_ = np.cov(moments_np.T, ddof=1)
-            else:
-                self.Omega_ = self._compute_hac_covariance(moments_np)
-
-            # Sandwich formula
-            GWG_inv = np.linalg.inv(self.Gamma_.T @ W_np @ self.Gamma_)
-            if iid and np.allclose(W_np, np.linalg.inv(self.Omega_), atol=1e-6):
-                self.vtheta_ = GWG_inv
-            else:
-                middle = self.Gamma_.T @ W_np @ self.Omega_ @ W_np @ self.Gamma_
-                self.vtheta_ = GWG_inv @ middle @ GWG_inv
-
-            self.std_errors_ = np.sqrt(np.diag(self.vtheta_) / self.n_)
-        except Exception as e:
-            if verbose:
-                print(f"Warning: Could not compute standard errors: {e}")
-            self.std_errors_ = None
-
-    def to(self, device: Union[torch.device, str]) -> "GMMEstimatorTorch":
-        """Move all fitted data to specified device.
-
-        Parameters
-        ----------
-        device : torch.device or str
-            Target device ('cuda', 'cpu', etc.)
-
-        Returns
-        -------
-        GMMEstimatorTorch
-            Self for method chaining
-        """
-        self.device = torch.device(device) if isinstance(device, str) else device
-        if self.z_ is not None:
-            self.z_ = self.z_.to(self.device)
-        if self.y_ is not None:
-            self.y_ = self.y_.to(self.device)
-        if self.x_ is not None:
-            self.x_ = self.x_.to(self.device)
-        if self.W_ is not None:
-            self.W_ = self.W_.to(self.device)
+    def to(self, device):
+        self.device = torch.device(device)
+        for name in ("z_", "y_", "x_", "W_"):
+            value = getattr(self, name, None)
+            if isinstance(value, torch.Tensor):
+                setattr(self, name, value.to(device))
         return self
 
-    def jacobian_moment_cond(self) -> np.ndarray:
-        # For IV moment condition g(z,y,x,beta) = z * (y - x*beta)
-        # Jacobian w.r.t. beta is -z'x / n
-        z_np = self.z_.detach().cpu().numpy()
-        x_np = self.x_.detach().cpu().numpy()
-        self.jac_est_ = -z_np.T @ x_np / self.n_
-        return self.jac_est_
-
-    def _compute_hac_covariance(
-        self, moments: np.ndarray, max_lags: int = None
-    ) -> np.ndarray:
-        """Compute HAC-robust covariance matrix using Newey-West estimator"""
-        n, k = moments.shape
-        if max_lags is None:
-            max_lags = int(np.floor(4 * (n / 100) ** (2 / 9)))  # Rule of thumb
-
-        # Center moments
-        moments_centered = moments - moments.mean(axis=0)
-
-        # Compute covariance matrix
-        Omega = np.zeros((k, k))
-
-        # Lag 0 (variance)
-        Omega += moments_centered.T @ moments_centered / n
-
-        # Higher order lags with Bartlett kernel
-        for lag in range(1, max_lags + 1):
-            weight = 1 - lag / (max_lags + 1)  # Bartlett kernel
-            gamma_lag = np.zeros((k, k))
-
-            for t in range(lag, n):
-                gamma_lag += np.outer(moments_centered[t], moments_centered[t - lag])
-
-            gamma_lag /= n
-            Omega += weight * (gamma_lag + gamma_lag.T)
-
-        return Omega
-
     @staticmethod
-    def iv_moment(
-        z: torch.Tensor, y: torch.Tensor, x: torch.Tensor, beta: torch.Tensor
-    ) -> torch.Tensor:
+    def iv_moment(z, y, x, beta):
         return z * (y - x @ beta).unsqueeze(-1)
 
 
-_BACKENDS = {
-    "scipy": GMMEstimatorScipy,
-    "torch": GMMEstimatorTorch,
-}
+_BACKENDS = {"scipy": GMMEstimatorScipy, "torch": GMMEstimatorTorch}

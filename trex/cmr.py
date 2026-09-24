@@ -12,22 +12,9 @@ from typing import Any, Callable, Optional
 import torch
 
 from .base import BaseEstimator
-
+from ._utils import _to_tensor
 
 MomentFunction = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
-
-
-def _to_tensor(
-    value: Any,
-    device: torch.device,
-    dtype: Optional[torch.dtype] = None,
-) -> torch.Tensor:
-    if isinstance(value, torch.Tensor):
-        tensor = value.to(device)
-        return tensor.to(dtype=dtype) if dtype is not None else tensor
-
-    tensor = torch.as_tensor(value, device=device)
-    return tensor.to(dtype=dtype) if dtype is not None else tensor
 
 
 def _as_2d(tensor: torch.Tensor) -> torch.Tensor:
@@ -106,6 +93,8 @@ def hsic(
     kx, _ = rbf_kernel(x, bandwidth=bandwidth_x)
     ky, _ = rbf_kernel(y, bandwidth=bandwidth_y)
     n = x.shape[0]
+    if n < 2 or y.shape[0] != n:
+        raise ValueError("HSIC requires matching samples with at least two rows")
     center = torch.eye(n, device=x.device, dtype=x.dtype)
     center = center - torch.full((n, n), 1.0 / n, device=x.device, dtype=x.dtype)
     return torch.trace(center @ kx @ center @ ky) / ((n - 1) ** 2)
@@ -200,7 +189,7 @@ class ConditionalMomentEstimator(BaseEstimator):
         **optimizer_kwargs: Any,
     ):
         super().__init__(device=device)
-        self.model = model.to(self.device)
+        self.model = model.to(device=self.device, dtype=dtype)
         self.moment_function = moment_function
         self.optimizer_class = optimizer
         self.maxiter = maxiter
@@ -365,6 +354,7 @@ class SieveMinimumDistance(ConditionalMomentEstimator):
         self, t: Any, y: Any, z: Any, verbose: bool = False
     ) -> "SieveMinimumDistance":
         t_tensor, y_tensor, z_tensor = self._prepare_inputs(t, y, z)
+        self.z_mean_ = self.z_scale_ = None
         z_std = self._standardize_z(z_tensor)
         basis = polynomial_sieve(
             z_std,

@@ -157,7 +157,7 @@ class BinaryProbit(ChoiceModel):
         Compute negative log-likelihood for binary probit model.
 
         Uses the standard normal CDF (Φ) for link function with numerical
-        stability via epsilon addition.
+        stability via the log normal CDF.
 
         Args:
             params: Coefficient vector of shape (n_features,).
@@ -168,14 +168,11 @@ class BinaryProbit(ChoiceModel):
             Negative log-likelihood as a scalar tensor.
         """
         logits = X @ params
-        norm_dist = torch.distributions.Normal(0, 1)
-        # Add a small epsilon for numerical stability
-        eps = 1e-8
-        log_likelihood = torch.sum(
-            y * torch.log(norm_dist.cdf(logits) + eps)
-            + (1 - y) * torch.log(norm_dist.cdf(-logits) + eps)
-        )
-        return -log_likelihood
+        # log_ndtr retains rare-event gradients even when Phi underflows.
+        return -(
+            y * torch.special.log_ndtr(logits)
+            + (1 - y) * torch.special.log_ndtr(-logits)
+        ).sum()
 
     def _compute_fisher_information(
         self, params: torch.Tensor, X: torch.Tensor, y: torch.Tensor
@@ -192,10 +189,14 @@ class BinaryProbit(ChoiceModel):
             Fisher information matrix of shape (n_features, n_features).
         """
         logits = X @ params
-        norm_dist = torch.distributions.Normal(0, 1)
-        pdf_vals = torch.exp(norm_dist.log_prob(logits))
-        cdf_vals = norm_dist.cdf(logits)
-        weights = pdf_vals**2 / (cdf_vals * (1 - cdf_vals))
+        log_pdf = -0.5 * logits.square() - 0.5 * torch.log(
+            logits.new_tensor(2 * torch.pi)
+        )
+        weights = torch.exp(
+            2 * log_pdf
+            - torch.special.log_ndtr(logits)
+            - torch.special.log_ndtr(-logits)
+        )
         weighted_X = X * weights.unsqueeze(1)
         return weighted_X.T @ X
 
@@ -307,9 +308,12 @@ class MultinomialLogit(ChoiceModel):
                 init_params = init_params.reshape(n_features, n_choices - 1)
         else:
             # Initialize as matrix, then flatten for optimizer
-            init_params = torch.randn(
-                n_features, n_choices - 1, device=self.device
-            ) * 0.01
+            init_params = (
+                torch.randn(
+                    n_features, n_choices - 1, device=self.device, dtype=X.dtype
+                )
+                * 0.01
+            )
 
         # Flatten for optimizer
         init_params_flat = init_params.flatten()
@@ -348,7 +352,8 @@ class MultinomialLogit(ChoiceModel):
         params = params.reshape(n_features, n_choices - 1)
         # We fix one choice's params to 0 for identification
         params_full = torch.cat(
-            [params, torch.zeros(X.shape[1], 1, device=self.device)], dim=1
+            [params, torch.zeros(X.shape[1], 1, device=self.device, dtype=X.dtype)],
+            dim=1,
         )
         logits = X @ params_full
         log_probs = torch.nn.functional.log_softmax(logits, dim=1)
@@ -357,24 +362,18 @@ class MultinomialLogit(ChoiceModel):
     def _compute_fisher_information(
         self, params: torch.Tensor, X: torch.Tensor, y: torch.Tensor
     ) -> torch.Tensor:
-        """
-        Compute Fisher information matrix for multinomial logit.
-
-        Note: This is a placeholder returning identity matrix. Full implementation
-        requires block-structured Hessian computation across all alternatives.
-
-        Args:
-            params: Coefficient matrix of shape (n_features, n_choices - 1).
-            X: Design matrix of shape (n_samples, n_features).
-            y: One-hot encoded choices (unused but kept for interface consistency).
-
-        Returns:
-            Placeholder identity matrix of shape (n_params, n_params).
-        """
-        # This is more complex for multinomial logit and will be implemented later.
-        # params is already in matrix form when called from parent
-        n_params = params.numel()
-        return torch.eye(n_params, device=self.device)
+        """Expected information in flattened (feature, non-base class) order."""
+        p, k = X.shape[1], y.shape[1] - 1
+        coefficients = params.reshape(p, k)
+        logits = X @ torch.cat([coefficients, coefficients.new_zeros(p, 1)], dim=1)
+        probabilities = torch.softmax(logits, dim=1)[:, :k]
+        categorical_cov = (
+            torch.diag_embed(probabilities)
+            - probabilities[:, :, None] * probabilities[:, None, :]
+        )
+        return torch.einsum("ni,nj,nab->iajb", X, X, categorical_cov).reshape(
+            p * k, p * k
+        )
 
     def predict_proba(self, X: torch.Tensor) -> torch.Tensor:
         """
@@ -395,7 +394,7 @@ class MultinomialLogit(ChoiceModel):
         params_full = torch.cat(
             [
                 self.params["coef"],
-                torch.zeros(X.shape[1], 1, device=self.device),
+                torch.zeros(X.shape[1], 1, device=self.device, dtype=X.dtype),
             ],
             dim=1,
         )
@@ -658,22 +657,10 @@ class LowRankLogit(ChoiceModel):
     def _compute_fisher_information(
         self, params: torch.Tensor, X: torch.Tensor, y: torch.Tensor
     ) -> torch.Tensor:
-        """
-        Compute Fisher information matrix for low-rank logit model.
-
-        Note: This is a placeholder returning identity matrix. Full implementation
-        requires computation of expected Hessian of the low-rank factorized utility.
-
-        Args:
-            params: Flattened [A; B] parameters.
-            X: User indices (unused but kept for interface consistency).
-            y: Chosen item indices (unused but kept for interface consistency).
-
-        Returns:
-            Placeholder identity matrix of shape (n_params, n_params).
-        """
-        # This is a placeholder and should be implemented properly.
-        return torch.eye(params.shape[0], device=self.device)
+        """Factorized-logit inference requires identification-aware treatment."""
+        raise NotImplementedError(
+            "LowRankLogit standard errors are not implemented; factor rotations make the naive Hessian singular"
+        )
 
     def simulate(
         self, X: torch.Tensor, assortments: torch.Tensor = None
@@ -777,7 +764,7 @@ class LowRankLogit(ChoiceModel):
             results["counterfactual_expected_revenue"] = counterfactual_revenue
             results["revenue_change"] = counterfactual_revenue - baseline_revenue
             results["revenue_change_pct"] = (
-                (counterfactual_revenue - baseline_revenue) / baseline_revenue
-            )
+                counterfactual_revenue - baseline_revenue
+            ) / baseline_revenue
 
         return results
