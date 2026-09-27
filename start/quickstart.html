@@ -617,7 +617,7 @@ window.Quarto = {
 <section id="data-and-target" class="level2">
 <h2 class="anchored" data-anchor-id="data-and-target">Data and target</h2>
 <p>Let <span class="math inline">y_i=0.5+1.4x_{i1}-0.8x_{i2}+\epsilon_i</span>, with mean-zero noise independent of the regressors. The slopes describe conditional associations here; a causal interpretation would require a substantive exogeneity argument.</p>
-<div id="4a84cd0f" class="cell" data-execution_count="1">
+<div id="4fc6ab75" class="cell" data-execution_count="1">
 <details class="code-fold">
 <summary>Show Python</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
@@ -682,7 +682,7 @@ window.Quarto = {
 </section>
 <section id="predictions-and-diagnostics" class="level2">
 <h2 class="anchored" data-anchor-id="predictions-and-diagnostics">Predictions and diagnostics</h2>
-<div id="59f86003" class="cell" data-execution_count="2">
+<div id="cd39c772" class="cell" data-execution_count="2">
 <details class="code-fold">
 <summary>Show Python</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>predicted <span class="op">=</span> model.predict(X[test]).numpy()</span>
@@ -694,7 +694,7 @@ window.Quarto = {
 <pre><code>{'test_RMSE': 0.4512049450942954, 'coefficient_covariance_shape': (3, 3)}</code></pre>
 </div>
 </div>
-<div id="bf15dba6" class="cell" data-execution_count="3">
+<div id="1a2f5656" class="cell" data-execution_count="3">
 <details class="code-fold">
 <summary>Show Python</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>

@@ -625,7 +625,7 @@ Q_n(\theta)=\bar g_n(\theta)'W\bar g_n(\theta),\qquad
 </section>
 <section id="endogenous-regressor-example" class="level2">
 <h2 class="anchored" data-anchor-id="endogenous-regressor-example">Endogenous regressor example</h2>
-<div id="0534bb42" class="cell" data-execution_count="1">
+<div id="2e694793" class="cell" data-execution_count="1">
 <details class="code-fold">
 <summary>Show Python</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
@@ -710,7 +710,7 @@ Q_n(\theta)=\bar g_n(\theta)'W\bar g_n(\theta),\qquad
 \widehat\Gamma_\ell=\frac1n\sum_{i=\ell+1}^n g_i g_{i-\ell}'.
 </span></p>
 <p>Set <code>max_lags</code> explicitly when a particular bandwidth is part of the design. Reordering the rows changes this calculation. HAC is not a substitute for an arbitrary cluster structure.</p>
-<div id="310f88e8" class="cell" data-execution_count="2">
+<div id="34d3b478" class="cell" data-execution_count="2">
 <details class="code-fold">
 <summary>Show Python</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> fits[<span class="st">"torch"</span>]</span>
@@ -720,7 +720,7 @@ Q_n(\theta)=\bar g_n(\theta)'W\bar g_n(\theta),\qquad
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> np.allclose(m.covariance_, m.vtheta_<span class="op">/</span>n)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>{'moment_mean': [6e-05, -0.00674, 0.01349], 'parameter_covariance_shape': [2, 2], 'backend_coefficient_max_gap': 3.486611444003529e-09}</code></pre>
+<pre><code>{'moment_mean': [6e-05, -0.00674, 0.01349], 'parameter_covariance_shape': [2, 2], 'backend_coefficient_max_gap': 3.4866181053416767e-09}</code></pre>
 </div>
 </div>
 <p>Use <code>covariance_</code> for estimated coefficient variance. <code>vtheta_</code> retains the asymptotic, non-divided scale. A fixed positive-definite matrix is accepted as <code>weighting_matrix</code>; <code>"identity"</code> avoids the second weighting step. <code>init_params</code> determines parameter dimension when it differs from <code>x.shape[1]</code>, including nonlinear moment models.</p>
