@@ -198,7 +198,7 @@ def metadata(torch, host):
             "memory": command("sysctl", "-n", "hw.memsize") if sys.platform == "darwin"
                       else command("free", "-b"),
             "gpu": command("system_profiler", "SPDisplaysDataType", "-json") if sys.platform == "darwin"
-                   else command("nvidia-smi", "--query-gpu=name,memory.total,driver_version,pci.link.gen.current,pci.link.width.current", "--format=csv,noheader"),
+                   else command("nvidia-smi", "--query-gpu=name,memory.total,driver_version", "--format=csv,noheader"),
             "python": platform.python_version(),
             "versions": {n: importlib.metadata.version(n) for n in
                          ["torch", "numpy", "scipy", "pandas", "pytorch-minimize"]},

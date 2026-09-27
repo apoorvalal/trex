@@ -38,6 +38,10 @@ data = Path("benchmarks/data/2026-09-27")
 bundle = load_bundle(data / "measurements.json.gz")
 rows = summarize(bundle)
 df = pd.DataFrame(rows)
+pd.testing.assert_frame_equal(
+    df.fillna(""), pd.read_csv(data / "summary.csv").fillna(""),
+    check_dtype=False, rtol=1e-12, atol=1e-15,
+)
 cases = bundle["manifest"]["cases"]
 families = list(LABELS)
 backend_names = {"mac-cpu": "M4 CPU", "mac-mps": "M4 Metal",
