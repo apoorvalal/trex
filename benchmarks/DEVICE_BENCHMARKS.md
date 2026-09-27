@@ -54,6 +54,22 @@ The suite is a workload study on two machines, not a hardware leaderboard or a
 Monte Carlo estimator comparison. The three repetitions reuse one fixed DGP
 draw per size. They measure runtime variability, not statistical uncertainty.
 
+## Numerical agreement rule
+
+The comparison rule is fixed before the repeated timing run. For each result,
+compare all measured repetitions with all same-case Mac CPU repetitions. Use
+coefficients and standard errors for regression/choice/GMM, coefficients for
+linear conditional moments, and sampled predictions for neural/latent/matrix
+completion fits. SDID compares its ATT (donor weights need not be unique).
+Require the largest componentwise difference divided by
+`1 + max(abs(reference))` to be at most `1e-3` in float32 or `1e-5` in float64.
+Also require losses (or both SDID weight objectives) to agree to `1e-4` on the
+same scale. These are computational agreement thresholds, not statistical
+equivalence tests. Report every raw timing, but withhold a speedup claim when
+agreement fails. Separately flag normalized score residuals above `1e-4` and
+iteration-cap hits; agreement does not establish convergence. Fixed-step
+training remains labeled fixed-work even if the runs agree closely.
+
 ## Smoke runs and results
 
 Use `--only wls_1,mmr_1` to restrict cases, and `--warmups 0 --repeats 1`

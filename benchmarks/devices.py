@@ -398,10 +398,11 @@ def worker(args):
         out = snapshot(torch, model, c, tensors)
         synchronize(torch, args.device)
         ended = time.perf_counter()
+        peak = torch.cuda.max_memory_allocated() if args.device == "cuda" else None
         details = diagnostics(torch, model, c, tensors, out, arrays)
         rows.append({"repeat": rep, "warmup": rep < 0, "prepare_s": prepared-started,
                      "fit_s": fitted-prepared, "end_to_end_s": ended-started,
-                     "cuda_peak_allocated_bytes": torch.cuda.max_memory_allocated() if args.device=="cuda" else None,
+                     "cuda_peak_allocated_bytes": peak,
                      **details})
         del model, fit, tensors, out
     return {"status": "ok", "case": c, "device": args.device, "runs": rows}
