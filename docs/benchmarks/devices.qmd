@@ -1,0 +1,419 @@
+---
+title: "CPU, Metal and CUDA performance"
+subtitle: "Matched estimation problems on an Apple M4 and NVIDIA RTX 5070"
+date: 2026-09-27
+toc-depth: 2
+---
+
+Trex's tensor interface makes it possible to run many estimators on different
+devices, but does not guarantee acceleration. This study measures **14 workloads
+from 12 estimator classes, at three sizes each**, using the same input files,
+precision and fitting settings on four backends. The Mac's **CPU** and
+**Metal GPU (`mps`)** are distinct backends; the CUDA host's CPU is included to
+separate within-machine acceleration from a comparison between computers.
+
+These are measured fits, not extrapolated GPU timings. Each successful case has
+one discarded warm-up and **three fresh timed fits**. Numerical agreement is
+checked before presenting runtime ratios. Errors and iteration limits remain
+part of the results.
+
+```{python}
+#| label: benchmark-data
+#| include: false
+from pathlib import Path
+import sys
+import json
+import html
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.colors import TwoSlopeNorm
+from IPython.display import display, HTML, Markdown
+
+root = Path.cwd().parent
+sys.path.insert(0, str(root / "benchmarks"))
+from summarize_devices import load_bundle, summarize, LABELS, BACKENDS
+
+data = Path("benchmarks/data/2026-09-27")
+bundle = load_bundle(data / "measurements.json.gz")
+rows = summarize(bundle)
+df = pd.DataFrame(rows)
+cases = bundle["manifest"]["cases"]
+families = list(LABELS)
+backend_names = {"mac-cpu": "M4 CPU", "mac-mps": "M4 Metal",
+                 "fwk-cpu": "Intel CPU", "fwk-cuda": "RTX 5070 CUDA"}
+indexed = {(r["case"], r["backend"]): r for r in rows}
+
+def table(headers, values):
+    head = "".join(f"<th>{h}</th>" for h in headers)
+    body = "".join("<tr>" + "".join(f"<td>{v}</td>" for v in row) + "</tr>" for row in values)
+    display(HTML(f'<div class="table-responsive"><table class="table table-sm"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'))
+
+def marker(r):
+    return " ‡" if r["agreement_pass"] is False else " †" if r["cap_hit"] or (r["score_flag"] and r["budget"] != "fixed_steps") else ""
+
+def times(r):
+    if r["status"] != "ok": return "unsupported" if r["backend"] == "mac-mps" else r["status"]
+    return f'{1000*r["median_s"]:.2f}{marker(r)}<br><small>[{1000*r["min_s"]:.2f}, {1000*r["max_s"]:.2f}]</small>'
+
+def timing_table(size):
+    values = []
+    for c in cases:
+        if c["size"] != size: continue
+        label = LABELS[c["family"]]
+        if c["budget"] == "fixed_steps": label += " (fixed work)"
+        label += "<br><small>" + " × ".join(map(str, c["shape"])) + "</small>"
+        values.append([label] + [times(indexed[c["id"], b]) for b in BACKENDS])
+    table(["Workload / dimensions"] + list(backend_names.values()), values)
+```
+
+## Main findings
+
+**CUDA pays off selectively as the problem grows; the M4 CPU is the best
+starting point for small fits in this suite.** Every small workload is faster
+on its host CPU than on the tested GPU backend. At larger sizes the story
+depends strongly on the estimator.
+
+- **Dense conditional moments and larger regressions benefit from CUDA.** At
+  the largest size, kernel MMR takes **28.8 ms on CUDA**, versus **739 ms on the
+  Intel CPU** and **267 ms on the M4 CPU**: 25.7× within-host acceleration, or
+  9.3× relative to the Mac. Large multinomial logit gains 12.0× versus the Intel
+  CPU; two-way FE gains 8.4×.
+- **Neural training benefits once the batches are large enough.** The 50,000-row
+  neural-sieve fit takes 54.5 ms on CUDA, 172 ms on Metal and 308 ms on the M4
+  CPU. This is the same 60-step training budget and agreeing predictions, not
+  a comparison of times to a certified optimum.
+- **Metal is not a general substitute for CPU here.** It completes 21 of 42
+  configurations natively. Large MMR and neural-sieve fits are 1.54× and 1.79×
+  faster than the M4 CPU; the tested likelihood, linear-sieve and SDID fits
+  are slower. The other 21 configurations require unsupported operations or
+  float64.
+- **A GPU does not help every iterative estimator.** The 128-state NFXP fit
+  takes 263 ms on the M4 CPU and 805 ms on CUDA. SDID is also CPU-favored at
+  these sizes, but every SDID run reaches its iteration cap, so its figures
+  are timings of the same bounded computation—not times to convergence.
+
+All **147 completed backend/problem combinations** pass the predeclared
+agreement rule. This means computationally similar fitted outputs, not that
+all objectives have been optimized to arbitrary accuracy. The medium CUDA
+Poisson fit has a flagged score residual, and the neural fits intentionally
+stop after their fixed training budget.
+
+## Machines and software
+
+| | Apple system | CUDA system (`fwk`) |
+|---|---|---|
+| CPU | Apple M4, 10 cores | Intel Core i5-1240P, 12 cores / 16 threads |
+| GPU | Integrated M4 GPU, 10 cores; Metal/MPS | NVIDIA GeForce RTX 5070, 12 GB |
+| System memory | 16 GiB unified | 32 GB installed |
+| OS | macOS 26.6.2, arm64 | Ubuntu Linux, x86-64 |
+| Torch | 2.9.1 | 2.9.1+cu128 |
+| Python | 3.12.11 | 3.12.12 |
+| CUDA runtime / driver | — | 12.8 / 595.84 |
+
+Both environments use **NumPy 2.4.2, SciPy 1.17.0, pandas 2.3.3 and
+pytorch-minimize 0.0.2**. Eight intra-op/BLAS threads and one Torch inter-op
+thread are requested on each host. Neither CPU affinity nor clock rates are
+locked. Apple Accelerate and Linux BLAS/CUDA libraries still differ;
+matching package versions does not make the machines identical.
+
+The [machine metadata](data/2026-09-27/metadata.json) includes exact Python,
+kernel, Torch-build and source information. Both runs used the same Trex
+implementation and benchmark runner hashes. The benchmark source is pinned
+independently of subsequent documentation edits.
+
+## Workloads and sizes
+
+The shape definitions matter: “large” is relative to each algorithm, not a
+common amount of computation. A dense kernel has quadratic storage; a linear
+regression with few columns does not.
+
+| Workload | Small | Medium | Large | Precision / fitting rule |
+|---|---:|---:|---:|---|
+| [Weighted least squares](../guides/linear-regression.qmd) | 1,000 × 8 | 20,000 × 32 | 200,000 × 64 | float32; weighted solve + HC1 |
+| [Two-way fixed effects](../guides/linear-regression.qmd) | 2,000 × 8 | 20,000 × 16 | 200,000 × 32 | float64; weighted absorption + HC1 |
+| [Binary logit](../guides/static-choice.qmd) | 1,000 × 8 | 20,000 × 32 | 200,000 × 64 | float32; LBFGS + model-based SE |
+| [Poisson](../guides/likelihood-glms.qmd) | 1,000 × 8 | 20,000 × 32 | 200,000 × 64 | float32; LBFGS + model-based SE |
+| [Multinomial logit](../guides/static-choice.qmd) | 1,000 × 6 × 4 | 20,000 × 12 × 5 | 200,000 × 24 × 6 | float32; LBFGS + covariance |
+| [Two-step IV GMM](../guides/gmm.qmd) | 1,000 × 6 × 10 | 20,000 × 12 × 18 | 200,000 × 24 × 32 | float64; Torch optimizer + sandwich SE |
+| [Kernel MMR](../guides/conditional-moments.qmd) | 256 × 3 | 1,024 × 3 | 4,096 × 3 | float32; dense RBF kernel, linear predictor |
+| [Linear sieve MD](../guides/conditional-moments.qmd) | 1,000 × 6 | 20,000 × 6 | 200,000 × 6 | float32; cubic instrument sieve, LBFGS |
+| [Neural sieve MD](../guides/conditional-moments.qmd) | 1,000 × 6 | 10,000 × 6 | 50,000 × 6 | float32; 64-unit network, 60 Adam steps |
+| [Matrix completion](../guides/matrix-completion.qmd) | 64 × 40 | 256 × 120 | 1,024 × 240 | float32; nuclear penalty, repeated SVD |
+| [Gaussian latent factors](../guides/latent-factors.qmd) | 64 × 40 | 256 × 120 | 1,024 × 240 | float32; rank 3, 120 AdamW steps |
+| [Synthetic DID](../guides/synthetic-did.qmd) | 100 × 50 | 500 × 120 | 2,000 × 240 | float32; simplex Frank–Wolfe weights |
+| [NFXP](../guides/dynamic-choice.qmd) | 2,000 / 16 | 10,000 / 48 | 50,000 / 128 | float64; observations / states, 2 actions |
+| [Hotz–Miller](../guides/dynamic-choice.qmd) | 2,000 / 16 | 10,000 / 48 | 50,000 / 128 | float64; observations / states, 2 actions |
+
+Regression dimensions are $n\times p$; multinomial logit adds $J$ choices and
+GMM adds $q$ instruments. Panel dimensions are units $\times$ periods. MMR and
+both sieve estimators use three instruments. All intercept columns are explicit.
+The TWFE panel has 20 periods and $n/20$ units; its known absorbed rank is
+supplied, so the experiment measures fitting rather than a CPU rank-counting
+prepass.
+
+### Common data and solver settings
+
+All inputs are generated once with NumPy seeds **8270, 8271 and 8272** for the
+three sizes, saved as arrays, and copied to the other host. Every worker checks
+the [input SHA-256 manifest](data/2026-09-27/manifest.json). This avoids different
+CPU/CUDA random-number streams changing the estimation problem.
+
+- Regression errors are synthetic; WLS weights are positive lognormal functions
+  of a covariate. The IV design adds a common shock to a regressor and its error.
+  The conditional-moment examples similarly contain an endogenous regressor.
+- Likelihood fits start at zero, with `maxiter=60, tol=1e-7`. GMM uses two-step
+  optimal weighting, `maxiter=200, tol=1e-8`. Linear MMR/sieve MD use LBFGS with
+  100 inner iterations, gradient tolerance `1e-6` and change tolerance `1e-9`.
+  MMR's RBF bandwidth is 1; the sieve has degree 3 and ridge `1e-6`.
+- Neural sieve MD uses copied initial weights, a 6–64–1 tanh network and 60
+  full-batch Adam steps at learning rate 0.01. This is **fixed work**, not a
+  claim of optimization convergence.
+- Matrix completion and latent factors use rank-three synthetic signals and
+  approximately 80% observed cells. Matrix completion uses
+  `lambda_fraction=0.1, maxiter=80, tol=1e-5`. The latent model adds three
+  covariates, penalty 0.001 and 120 AdamW steps at learning rate 0.02; its
+  initialization includes a least-squares solve and SVD. Fitted predictions,
+  not nonidentified factor signs, are compared.
+- SDID uses 90% control units, 75% pretreatment periods, a post-treatment shift
+  of 1, and `maxiter=1000, min_decrease=1e-4`. Its stopping test squares
+  `min_decrease`; the numerical-diagnostics section identifies cap hits.
+- Dynamic choice uses the same two-action replacement model, known transitions,
+  discount factor 0.9 and copied initial parameters. It fits simulated
+  state/choice observations with `maxiter=40, tol=1e-7`. This is not transition
+  estimation or a long-panel dependence experiment.
+
+## End-to-end fit times
+
+Times below are **milliseconds: median [minimum, maximum] of three fits**,
+after warm-up. Model construction, movement from host RAM, the public `fit`
+method, and copying fitted results back to CPU are included. Imports, disk I/O,
+data generation, SSH transfer, and post-fit quality diagnostics are excluded.
+Where the public fit computes standard errors, their cost is included.
+
+† indicates a score diagnostic or iteration-cap warning; ‡ means the numerical
+agreement rule failed. The timing is still reported, but it is not presented as
+a speedup to an equivalent solution. Neural and latent-factor rows are
+fixed-work comparisons even when they agree closely.
+
+::: {.panel-tabset}
+
+### Small
+
+```{python}
+#| echo: false
+timing_table("small")
+```
+
+### Medium
+
+```{python}
+#| echo: false
+timing_table("medium")
+```
+
+### Large
+
+```{python}
+#| echo: false
+timing_table("large")
+```
+
+:::
+
+### Within-machine acceleration
+
+The ratio is CPU median time divided by GPU median time **on the same host**.
+A value above 1 favors the GPU; below 1 favors that machine's CPU. An M4 CPU
+versus RTX 5070 ratio answers a different question because it also changes the
+host, memory system and software backend. Those cross-machine ratios are
+included separately in the downloadable CSV.
+
+```{python}
+#| label: fig-device-speedups
+#| fig-cap: "Transfer-inclusive CPU/GPU runtime ratios on each host. Gray cells did not run natively on that backend. An asterisk marks a fixed-step workload; a dagger marks an iteration-cap or score warning. Colors use a common logarithmic scale, clipped at the endpoints; labels give the actual ratios."
+#| fig-width: 5.7
+#| fig-height: 6
+#| echo: false
+cmap = plt.get_cmap("RdBu").copy()
+cmap.set_bad("#e6e8eb")
+for backend in ["mac-mps", "fwk-cuda"]:
+    fig, ax = plt.subplots(figsize=(5.7, 6), layout="constrained")
+    values = np.full((len(families), 3), np.nan)
+    labels = {}
+    for i, family in enumerate(families):
+        for j in range(3):
+            r = indexed[f"{family}_{j+1}", backend]
+            ratio = r["same_host_speedup"]
+            if ratio is not None:
+                values[i, j] = np.log2(ratio)
+                labels[i, j] = f"{ratio:.2f}×" + marker(r)
+            else: labels[i, j] = "—" if r["status"] != "ok" else "differs"
+    im = ax.imshow(values, cmap=cmap, norm=TwoSlopeNorm(vmin=-5, vcenter=0, vmax=5), aspect="auto")
+    for (i, j), label in labels.items():
+        color = "white" if np.isfinite(values[i, j]) and abs(values[i, j]) > 3 else "#17202a"
+        ax.text(j, i, label, ha="center", va="center", fontsize=10, color=color)
+    ax.set_xticks([0, 1, 2], ["Small", "Medium", "Large"])
+    ax.set_yticks(range(len(families)), [LABELS[f] + (" *" if f in {"neural_smd", "latent_gaussian"} else "") for f in families])
+    ax.set_title("M4: CPU / Metal" if backend == "mac-mps" else "fwk: Intel CPU / CUDA", fontsize=11)
+    ax.tick_params(axis="both", length=0, labelsize=10)
+    for spine in ax.spines.values(): spine.set_visible(False)
+    cbar = fig.colorbar(im, ax=ax, fraction=.04, pad=.025)
+    cbar.set_ticks([-5, -3, -1, 0, 1, 3, 5], ["1/32", "1/8", "1/2", "1", "2", "8", "32"])
+    cbar.set_label("CPU time / GPU time")
+    plt.show()
+```
+
+## Numerical agreement and stopping
+
+Speed is only useful if the same estimation problem is being solved. The
+agreement rule was committed **before the repeated timing run**. For each
+device, every measured repetition is compared with every Mac CPU repetition
+on that exact case. For a target vector $v$, define
+
+$$
+e_v=\max_{r,s}\frac{\|v_{\mathrm{device},r}-v_{\mathrm{M4\ CPU},s}\|_\infty}
+{1+\|v_{\mathrm{M4\ CPU},s}\|_\infty}.
+$$
+
+The bound is $10^{-3}$ for float32 and $10^{-5}$ for float64. Coefficients and
+standard errors are checked where available; prediction grids are checked for
+neural, latent-factor and matrix-completion fits; SDID compares the ATT rather
+than requiring unique donor weights. Losses, weighted residual RMSE, or both
+SDID weight objectives must additionally agree within $10^{-4}$ under the
+same scaling. The denominator's 1 makes this an absolute-plus-relative criterion,
+not a percentage error when the reference is near zero.
+
+```{python}
+#| echo: false
+summary = []
+for b in BACKENDS:
+    part = df[df.backend == b]
+    ok = part[part.status == "ok"]
+    summary.append([backend_names[b], f"{len(ok)} / 42", f"{int(ok.agreement_pass.sum())} / {len(ok)}",
+                    f"{ok.solution_scaled_error.max():.2e}", f"{ok.criterion_scaled_error.max():.2e}"])
+table(["Backend", "Fits completed", "Agreement passes", "Worst target error", "Worst criterion error"], summary)
+```
+
+Agreement is not an optimality certificate. The suite also records normalized
+score infinity-norms for likelihood, GMM and conditional-moment objectives,
+plus the iterations exposed by each public estimator. A score above $10^{-4}$
+is flagged separately. Score scales differ across objectives, so this is a
+diagnostic threshold, not a universal statistical accuracy guarantee.
+
+```{python}
+#| echo: false
+flagged = [r for r in rows if r["status"] == "ok" and (r["cap_hit"] or r["score_flag"] or not r["agreement_pass"])]
+values = []
+for r in flagged:
+    notes = []
+    if r["budget"] == "fixed_steps": notes.append("fixed work; no convergence claim")
+    if r["cap_hit"]: notes.append("iteration cap reached")
+    if r["score_flag"]: notes.append(f'score {r["max_score"]:.2e}')
+    if not r["agreement_pass"]: notes.append("agreement failed")
+    values.append([LABELS[r["family"]], r["size"], backend_names[r["backend"]], "; ".join(notes)])
+table(["Workload", "Size", "Backend", "Diagnostic"], values)
+```
+
+For linear MMR/sieve MD, the public interface does not expose the inner LBFGS
+iteration count; the recorded score is more informative than the length of its
+outer loss history. TWFE's reported single solve does not count absorption
+passes. Dynamic-choice standard errors are not implemented and are not timed.
+Matrix completion's relative-objective stop is not a primal–dual gap certificate.
+
+## Why a backend may not run
+
+MPS CPU fallback is **disabled**. A result labeled Metal must not quietly
+execute its unsupported tensor operation on CPU and then be described as a
+native GPU benchmark.
+
+```{python}
+#| echo: false
+failures = df[df.status != "ok"]
+values = []
+for family in families:
+    part = failures[failures.family == family]
+    if len(part):
+        values.append([LABELS[family], ", ".join(sorted(part["size"].unique())),
+                       "; ".join(sorted(part.reason.unique()))])
+table(["Workload", "Sizes", "Observed failure"], values)
+```
+
+Float64 is unavailable in MPS; Trex's FE absorption, Torch GMM and these dynamic
+choice implementations use it. Even float32 is not sufficient for every path:
+WLS validates matrix rank via SVD, matrix completion uses SVD directly, and the
+latent-factor initializer calls least squares. Support here refers specifically
+to **Torch 2.9.1 and these estimator paths**, not to every future Metal release.
+The benchmark does not patch a solver or silently move an operation to CPU.
+
+## Measurement boundaries and interpretation
+
+Each case runs in a separate process, with both backends on a host measured
+serially. CUDA/MPS are synchronized at timing boundaries. The warm-up executes
+the same full fit and initializes kernels/libraries before the three timed
+repetitions. Every repetition constructs a fresh estimator; a previously fitted
+model is never reused. The case timeout is 240 seconds for **imports, warm-up,
+all repetitions and diagnostics together**, not a per-fit time limit.
+
+There is no automatic mixed precision, TF32, `torch.compile`, or backend-specific
+solver tuning. Host-to-device input conversion and result transfers are timed;
+kernel-only and permanently GPU-resident workflows can have different tradeoffs.
+The download also reports fit-only and preparation times. “Fit-only” still
+includes conversions, validation or host work performed *inside* a public fit.
+For example, GMM is not a claim of fully GPU-resident inference simply because
+its optimization backend is Torch/CUDA.
+
+The results explain workload behavior, not peak hardware throughput:
+
+- Tiny problems often finish on CPU before GPU dispatch and synchronization
+  overhead can be amortized. Repeated Python control flow and scalar stopping
+  checks can be especially expensive on a GPU.
+- Larger matrix products and batched neural computations can amortize those
+  costs. Dense-kernel MMR also changes both arithmetic and memory demand as
+  $n^2$, unlike a fixed-width linear regression.
+- Iterative solvers can take different numbers of steps at different sizes.
+  A nonmonotone timing curve is not, by itself, a benchmark error. Consult the
+  recorded iteration counts, scores and raw ranges rather than fitting a
+  throughput curve to three points.
+- These are modest research-scale problems on one M4 and one consumer CUDA
+  GPU, with one DGP draw per size. They do not establish the fastest solver,
+  best thread count, energy efficiency, peak-memory frontier, or performance
+  on A100/H100-class hardware. GAN/diffusion training, language models, GEL's
+  SciPy path and the full space of Trex options are outside this suite.
+
+## Download and reproduce
+
+- [All raw warm-up and measured repetitions](data/2026-09-27/measurements.json.gz):
+  compressed JSON with timings, fitted outputs, diagnostics and failures.
+- [Summary CSV](data/2026-09-27/summary.csv): all 168 backend/case combinations,
+  medians/ranges, same-host and Mac-CPU ratios, agreement errors and flags.
+- [Input manifest](data/2026-09-27/manifest.json),
+  [environment metadata](data/2026-09-27/metadata.json), and
+  [download checksums](data/2026-09-27/SHA256SUMS).
+- [Benchmark runner](https://github.com/apoorvalal/trex/blob/0757ab065de849180bc0694686d19554a7091fdc/benchmarks/devices.py),
+  [measurement contract](https://github.com/apoorvalal/trex/blob/0757ab065de849180bc0694686d19554a7091fdc/benchmarks/DEVICE_BENCHMARKS.md),
+  and [analysis code](https://github.com/apoorvalal/trex/blob/main/benchmarks/summarize_devices.py).
+
+Install the pinned source and matching numerical-library versions in an
+appropriate environment on each host. Generate the data **once** and copy the
+whole directory; regenerating independently is not the matching procedure.
+
+```bash
+python benchmarks/devices.py generate --data tmp/device-bench/data
+
+# Mac, after copying the exact generated directory:
+python benchmarks/devices.py run --host mac --devices cpu,mps \
+  --data tmp/device-bench/data --output tmp/device-bench/mac-results
+
+# CUDA host, using those same input files:
+python benchmarks/devices.py run --host fwk --devices cpu,cuda \
+  --data tmp/device-bench/data --output tmp/device-bench/fwk-results
+```
+
+Collect the two result directories onto one machine and run
+`benchmarks/summarize_devices.py` as described in the
+[benchmark README](https://github.com/apoorvalal/trex/blob/main/benchmarks/DEVICE_BENCHMARKS.md). The documentation
+build validates and analyzes **saved measurements**; GitHub's CPU-only runner
+does not rerun or manufacture the hardware experiment. New hardware results
+should receive a new dated archive, preserving the source and environment
+associated with this snapshot.

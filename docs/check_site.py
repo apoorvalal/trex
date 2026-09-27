@@ -65,7 +65,7 @@ def check_site(site):
     search = json.loads((site / "search.json").read_text())
     indexed = {row.get("href", "").split("#")[0] for row in search}
     source = Path(__file__).resolve().parent
-    for directory in ("start", "guides", "reference"):
+    for directory in ("start", "guides", "reference", "benchmarks"):
         for qmd in (source / directory).glob("*.qmd"):
             html = qmd.relative_to(source).with_suffix(".html").as_posix()
             if not (site / html).is_file():

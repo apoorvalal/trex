@@ -14,6 +14,11 @@ Base estimators choose CUDA when available, otherwise CPU. Pass `device="cpu"` o
 
 GEL and antitonic score estimation perform substantial work in NumPy/SciPy. A tensor input does not guarantee GPU-resident computation. Device transfers, small matrix sizes, kernel launch overhead and dense kernel/transition storage can dominate runtime. Measure an actual workload before assuming acceleration.
 
+The [matched CPU, Metal and CUDA benchmark](../benchmarks/devices.qmd) measures
+42 problems across 12 estimator classes on an Apple M4 and an RTX 5070 system.
+It includes both machines' CPUs, transfer-inclusive times, numerical agreement,
+and the MPS operations that currently fail without CPU fallback.
+
 ## Objectives and covariance scaling
 
 Optimization gradients and inferential covariance solve different problems. If $\bar g_n(\theta)=n^{-1}\sum_i g_i(\theta)$, the inverse curvature of a mean criterion is not automatically the finite-sample covariance. GMM reports

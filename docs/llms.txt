@@ -5,6 +5,7 @@
 - [Start](https://apoorvalal.github.io/trex/start/installation.html): install from GitHub and pin a source revision.
 - [Choose an estimator](https://apoorvalal.github.io/trex/start/choosing.html): objectives, data layouts and inference boundaries.
 - [Numerics](https://apoorvalal.github.io/trex/start/numerics.html): dtype, device, weighting and covariance conventions.
+- [Performance](https://apoorvalal.github.io/trex/benchmarks/devices.html): measured matched CPU, Apple Metal and CUDA fits across 42 configurations, with numerical agreement and support limits.
 - [API](https://apoorvalal.github.io/trex/reference/index.html): generated signatures and public methods.
 - [Regression](https://apoorvalal.github.io/trex/guides/linear-regression.html): WLS, absorbed effects, HC0/HC1.
 - [GMM](https://apoorvalal.github.io/trex/guides/gmm.html): SciPy/Torch backends and iid/HAC covariance.

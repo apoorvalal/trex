@@ -6,6 +6,7 @@ project:
     - index.qmd
     - start/*.qmd
     - guides/*.qmd
+    - benchmarks/*.qmd
     - reference/*.qmd
     - contributing.qmd
     - references.qmd
@@ -13,6 +14,7 @@ project:
     - assets/
     - llms.txt
     - build-info.json
+    - benchmarks/data/
 
 website:
   title: Trex
@@ -33,6 +35,8 @@ website:
         href: start/choosing.qmd
       - text: API reference
         href: reference/index.qmd
+      - text: Performance
+        href: benchmarks/devices.qmd
     right:
       - icon: github
         href: https://github.com/apoorvalal/trex
@@ -71,6 +75,7 @@ website:
           - guides/generative-models.qmd
           - guides/llm-generators.qmd
       - reference/index.qmd
+      - benchmarks/devices.qmd
       - references.qmd
       - contributing.qmd
   page-footer:

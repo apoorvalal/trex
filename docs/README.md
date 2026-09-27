@@ -62,3 +62,10 @@ job uploads/deploys the same site to Pages after the branch push succeeds.
 The site is multi-page with shared assets and local KaTeX rather than a
 self-contained HTML report. This avoids embedding identical scripts in every
 API page while keeping the runtime independent of external math/font CDNs.
+# Hardware measurements
+
+`benchmarks/devices.qmd` analyzes the dated archive in
+`benchmarks/data/2026-09-27/`. The runner and analysis source live in the
+repository-level `benchmarks/` directory. CI validates and renders the saved
+measurements; it does not rerun Mac/Metal/CUDA fits. Keep new measurements in a
+new dated archive with matching data, source and environment metadata.

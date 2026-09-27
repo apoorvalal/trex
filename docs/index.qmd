@@ -43,6 +43,10 @@ Start with a [complete regression fit](start/quickstart.qmd), consult the [metho
 
 ## What the examples establish
 
+For hardware choices, see the [CPU, Metal and CUDA performance study](benchmarks/devices.qmd):
+identical input files, 14 workloads at three sizes, repeated timings, and
+explicit solution-agreement and backend-support checks.
+
 Numerical vignettes execute against the documented source and show their actual results. Small synthetic examples illustrate identification and computation; they are not broad claims about estimator rankings or accelerator speed. The panel vignette additionally uses the attributed California Proposition 99 fixture.
 
 The [reference-test record](https://github.com/apoorvalal/trex/blob/main/docs/audits/2026-09-23-cleanup.md) documents comparisons with R, Statsmodels, SciPy and linearmodels. Dynamic-choice and low-rank-logit standard errors are not implemented; generative-model fit quality does not establish causal validity. These limits are discussed where they affect an example.

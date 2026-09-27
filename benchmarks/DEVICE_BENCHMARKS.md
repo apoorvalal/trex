@@ -77,6 +77,14 @@ for a preflight. Preflight outputs must be kept separate from final results.
 Existing result files are not overwritten unless `--overwrite` is supplied.
 
 Raw data and process logs belong in ignored `tmp/`; compact final results,
-manifest and analysis belong under `benchmarks/results/` and are linked from
-the Quarto performance page. CI renders saved measurements; it does not invent
-GPU measurements on a hosted CPU runner.
+manifest and metadata are archived under `docs/benchmarks/data/2026-09-27/`.
+`summarize_devices.py` validates all 168 cases and produces the downloadable
+archive and CSV. The Quarto page reuses that analysis from saved raw repetitions.
+CI renders saved measurements; it does not invent GPU measurements on a hosted
+CPU runner.
+
+```bash
+python benchmarks/summarize_devices.py \
+  --results tmp/device-bench/mac-results tmp/device-bench/fwk-results \
+  --data tmp/device-bench/data --out docs/benchmarks/data/2026-09-27
+```
