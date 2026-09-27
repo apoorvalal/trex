@@ -357,6 +357,10 @@ window.Quarto = {
     <a class="nav-link" href="../reference/index.html"> 
 <span class="menu-text">API reference</span></a>
   </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../benchmarks/devices.html"> 
+<span class="menu-text">Performance</span></a>
+  </li>  
 </ul>
             <ul class="navbar-nav navbar-nav-scroll ms-auto">
   <li class="nav-item compact">
@@ -565,6 +569,12 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../benchmarks/devices.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">CPU, Metal and CUDA performance</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../references.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">References and further reading</span></a>
   </div>
@@ -637,7 +647,7 @@ E[Y_{it}\mid X,A,B]=g^{-1}(\eta_{it}).
 </section>
 <section id="worked-example-gaussian-panel-with-masked-cells" class="level2">
 <h2 class="anchored" data-anchor-id="worked-example-gaussian-panel-with-masked-cells">Worked example: Gaussian panel with masked cells</h2>
-<div id="f426aad6" class="cell" data-execution_count="1">
+<div id="6aaffb1e" class="cell" data-execution_count="1">
 <details class="code-fold">
 <summary>Show Python</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
@@ -725,7 +735,7 @@ Figure&nbsp;1: Predictions for held-out cells. The diagonal represents exact pre
 <section id="binary-and-count-outcomes" class="level2">
 <h2 class="anchored" data-anchor-id="binary-and-count-outcomes">Binary and count outcomes</h2>
 <p>Changing the family changes the likelihood and inverse link, not merely a post-processing transform of a least-squares fit. Here is a rank-zero Poisson fit, a useful reference case for the nonlinear implementation.</p>
-<div id="367f9bee" class="cell" data-execution_count="3">
+<div id="f40a7547" class="cell" data-execution_count="3">
 <details class="code-fold">
 <summary>Show Python</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>torch.manual_seed(<span class="dv">404</span>)</span>

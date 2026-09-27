@@ -10,6 +10,10 @@ pre, .sourceCode { max-width: 100%; }
 .table { font-size: .93rem; }
 .quarto-table-container { overflow-x: auto; }
 table { display: block; max-width: 100%; overflow-x: auto; }
+.benchmark-table { max-width: 100%; overflow-x: auto; }
+.benchmark-table table { display: table; min-width: 36rem; max-width: none; width: 100%; overflow-wrap: normal; word-break: normal; }
+.benchmark-table th, .benchmark-table td { min-width: 6rem; }
+.benchmark-table th:first-child, .benchmark-table td:first-child { min-width: 9rem; }
 .doc-signature { overflow-wrap: anywhere; }
 body.quarto-dark main a, body.quarto-dark .sidebar a { color: #79ced6; }
 body.quarto-dark main code { color: #ef94b7; }

@@ -318,6 +318,10 @@ window.Quarto = {
     <a class="nav-link" href="../reference/index.html"> 
 <span class="menu-text">API reference</span></a>
   </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../benchmarks/devices.html"> 
+<span class="menu-text">Performance</span></a>
+  </li>  
 </ul>
             <ul class="navbar-nav navbar-nav-scroll ms-auto">
   <li class="nav-item compact">
@@ -526,6 +530,12 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../benchmarks/devices.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">CPU, Metal and CUDA performance</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../references.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">References and further reading</span></a>
   </div>
@@ -585,6 +595,7 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="precision-and-devices">Precision and devices</h2>
 <p>Base estimators choose CUDA when available, otherwise CPU. Pass <code>device="cpu"</code> or <code>device="cuda"</code> explicitly for reproducibility. Float64 is a sensible starting point for ill-conditioned moments, Bellman derivatives and covariance calculations; fixed-effect absorption and GMM use double precision internally. Apple MPS does not support float64 and is not a drop-in backend for those methods.</p>
 <p>GEL and antitonic score estimation perform substantial work in NumPy/SciPy. A tensor input does not guarantee GPU-resident computation. Device transfers, small matrix sizes, kernel launch overhead and dense kernel/transition storage can dominate runtime. Measure an actual workload before assuming acceleration.</p>
+<p>The <a href="../benchmarks/devices.html">matched CPU, Metal and CUDA benchmark</a> measures 42 problems across 12 estimator classes on an Apple M4 and an RTX 5070 system. It includes both machines’ CPUs, transfer-inclusive times, numerical agreement, and the MPS operations that currently fail without CPU fallback.</p>
 </section>
 <section id="objectives-and-covariance-scaling" class="level2">
 <h2 class="anchored" data-anchor-id="objectives-and-covariance-scaling">Objectives and covariance scaling</h2>

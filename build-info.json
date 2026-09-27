@@ -1,8 +1,8 @@
 {
   "source_repository": "https://github.com/apoorvalal/trex",
-  "source_commit": "63a7dc4a5672312b1b0747d6dfe2b2aa0d02bb3b",
+  "source_commit": "081a1cbfbd7058a56b69af87f5c9d37951bec5e6",
   "tracked_source_dirty": false,
-  "built_at_utc": "2026-09-27T15:13:44.291350+00:00",
+  "built_at_utc": "2026-09-27T16:13:33.709980+00:00",
   "python": "3.12.14",
   "quarto": "1.8.27",
   "dependencies": {

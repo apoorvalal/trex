@@ -274,6 +274,10 @@ ul.task-list li input[type="checkbox"] {
     <a class="nav-link" href="./reference/index.html"> 
 <span class="menu-text">API reference</span></a>
   </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./benchmarks/devices.html"> 
+<span class="menu-text">Performance</span></a>
+  </li>  
 </ul>
             <ul class="navbar-nav navbar-nav-scroll ms-auto">
   <li class="nav-item compact">
@@ -482,6 +486,12 @@ ul.task-list li input[type="checkbox"] {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="./benchmarks/devices.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">CPU, Metal and CUDA performance</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="./references.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">References and further reading</span></a>
   </div>
@@ -570,6 +580,7 @@ ul.task-list li input[type="checkbox"] {
 </section>
 <section id="what-the-examples-establish" class="level2">
 <h2 class="anchored" data-anchor-id="what-the-examples-establish">What the examples establish</h2>
+<p>For hardware choices, see the <a href="./benchmarks/devices.html">CPU, Metal and CUDA performance study</a>: identical input files, 14 workloads at three sizes, repeated timings, and explicit solution-agreement and backend-support checks.</p>
 <p>Numerical vignettes execute against the documented source and show their actual results. Small synthetic examples illustrate identification and computation; they are not broad claims about estimator rankings or accelerator speed. The panel vignette additionally uses the attributed California Proposition 99 fixture.</p>
 <p>The <a href="https://github.com/apoorvalal/trex/blob/main/docs/audits/2026-09-23-cleanup.md">reference-test record</a> documents comparisons with R, Statsmodels, SciPy and linearmodels. Dynamic-choice and low-rank-logit standard errors are not implemented; generative-model fit quality does not establish causal validity. These limits are discussed where they affect an example.</p>
 <p><a href="build-info.json">Build provenance</a> records the source revision and software environment used for this site. <a href="./contributing.html">Contributing</a> explains how documentation changes reach <code>gh-pages</code>.</p>

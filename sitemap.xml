@@ -2,374 +2,378 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://apoorvalal.github.io/trex/references.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
+    <lastmod>2026-09-27T16:12:32.454Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/synthdid_estimate.html</loc>
-    <lastmod>2026-09-27T15:13:44.127Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.586Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/sc_estimate.html</loc>
-    <lastmod>2026-09-27T15:13:44.126Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.585Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/panel_estimates.html</loc>
-    <lastmod>2026-09-27T15:13:44.128Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.587Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/panel.matrix_completion_lambda_max.html</loc>
-    <lastmod>2026-09-27T15:13:44.129Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.587Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/panel.collapsed_form.html</loc>
-    <lastmod>2026-09-27T15:13:44.131Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.588Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/panel.MatrixCompletionResult.html</loc>
-    <lastmod>2026-09-27T15:13:44.105Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.569Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/index.html</loc>
-    <lastmod>2026-09-27T15:13:44.262Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.682Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/grouped_fe.cluster_embeddings.html</loc>
-    <lastmod>2026-09-27T15:13:44.157Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.608Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/grouped_fe.GroupedFEResult.html</loc>
-    <lastmod>2026-09-27T15:13:44.154Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.606Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/gmm.rho_el.html</loc>
-    <lastmod>2026-09-27T15:13:43.880Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.367Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/gmm.gmm.moment_covariance.html</loc>
-    <lastmod>2026-09-27T15:13:43.874Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.362Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/gmm.gmm.GMMEstimatorScipy.html</loc>
-    <lastmod>2026-09-27T15:13:43.867Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.357Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/gmm.GELEstimator.html</loc>
-    <lastmod>2026-09-27T15:13:43.879Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.366Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/distribution_metrics.html</loc>
-    <lastmod>2026-09-27T15:13:44.218Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.651Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/demean_torch.html</loc>
-    <lastmod>2026-09-27T15:13:43.854Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.347Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/cmr.squared_distance.html</loc>
-    <lastmod>2026-09-27T15:13:43.902Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.404Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/cmr.polynomial_sieve.html</loc>
-    <lastmod>2026-09-27T15:13:43.901Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.403Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/cmr.median_bandwidth.html</loc>
-    <lastmod>2026-09-27T15:13:43.901Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.404Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/cmr.ConditionalMomentEstimator.html</loc>
-    <lastmod>2026-09-27T15:13:43.898Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.401Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.estimate_ccps.html</loc>
-    <lastmod>2026-09-27T15:13:44.090Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.557Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.base.ChoiceModel.html</loc>
-    <lastmod>2026-09-27T15:13:43.919Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.417Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.ReplacementUtility.html</loc>
-    <lastmod>2026-09-27T15:13:44.085Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.554Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.LowRankLogit.html</loc>
-    <lastmod>2026-09-27T15:13:43.942Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.434Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.HotzMillerCCP.html</loc>
-    <lastmod>2026-09-27T15:13:44.062Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.537Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.DynamicChoiceData.html</loc>
-    <lastmod>2026-09-27T15:13:44.029Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.512Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.BinaryProbit.html</loc>
-    <lastmod>2026-09-27T15:13:43.929Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.424Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/build_panel_embeddings.html</loc>
-    <lastmod>2026-09-27T15:13:44.155Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.607Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/TabularTransformer.html</loc>
-    <lastmod>2026-09-27T15:13:44.160Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.611Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/TabularDiffusion.html</loc>
-    <lastmod>2026-09-27T15:13:44.217Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.650Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/SieveMinimumDistance.html</loc>
-    <lastmod>2026-09-27T15:13:43.892Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.391Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/SafetensorsLLMInContextGenerator.html</loc>
-    <lastmod>2026-09-27T15:13:44.239Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.667Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/NuclearNormMatrixCompletion.html</loc>
-    <lastmod>2026-09-27T15:13:44.098Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.564Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/MaximumLikelihoodEstimator.html</loc>
-    <lastmod>2026-09-27T15:13:43.816Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.318Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/LinearRegression.html</loc>
-    <lastmod>2026-09-27T15:13:43.795Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.302Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/KNNGroupedFixedEffects.html</loc>
-    <lastmod>2026-09-27T15:13:44.149Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.602Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/AntitonicScoreMatchingRegression.html</loc>
-    <lastmod>2026-09-27T15:13:43.917Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.415Z</lastmod>
   </url>
   <url>
-    <loc>https://apoorvalal.github.io/trex/guides/synthetic-did.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/guides/score-matching.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/guides/llm-generators.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/guides/likelihood-glms.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/guides/grouped-effects.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/guides/generative-models.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/guides/dynamic-choice.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/start/quickstart.html</loc>
-    <lastmod>2026-09-27T15:12:35.268Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/start/installation.html</loc>
-    <lastmod>2026-09-27T15:12:35.268Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/index.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/start/choosing.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/start/numerics.html</loc>
-    <lastmod>2026-09-27T15:12:35.268Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/guides/conditional-moments.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/guides/gel.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/guides/gmm.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/guides/latent-factors.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/guides/linear-regression.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
-  </url>
-  <url>
-    <loc>https://apoorvalal.github.io/trex/guides/matrix-completion.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
+    <loc>https://apoorvalal.github.io/trex/benchmarks/devices.html</loc>
+    <lastmod>2026-09-27T16:12:32.453Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/guides/static-choice.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
+    <lastmod>2026-09-27T16:12:32.454Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/guides/matrix-completion.html</loc>
+    <lastmod>2026-09-27T16:12:32.453Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/guides/linear-regression.html</loc>
+    <lastmod>2026-09-27T16:12:32.453Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/guides/latent-factors.html</loc>
+    <lastmod>2026-09-27T16:12:32.453Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/guides/gmm.html</loc>
+    <lastmod>2026-09-27T16:12:32.453Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/guides/gel.html</loc>
+    <lastmod>2026-09-27T16:12:32.453Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/guides/conditional-moments.html</loc>
+    <lastmod>2026-09-27T16:12:32.453Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/start/numerics.html</loc>
+    <lastmod>2026-09-27T16:12:32.454Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/start/choosing.html</loc>
+    <lastmod>2026-09-27T16:12:32.454Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/index.html</loc>
+    <lastmod>2026-09-27T16:12:32.454Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/start/installation.html</loc>
+    <lastmod>2026-09-27T16:12:32.454Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/start/quickstart.html</loc>
+    <lastmod>2026-09-27T16:12:32.454Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/guides/dynamic-choice.html</loc>
+    <lastmod>2026-09-27T16:12:32.453Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/guides/generative-models.html</loc>
+    <lastmod>2026-09-27T16:12:32.453Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/guides/grouped-effects.html</loc>
+    <lastmod>2026-09-27T16:12:32.453Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/guides/likelihood-glms.html</loc>
+    <lastmod>2026-09-27T16:12:32.453Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/guides/llm-generators.html</loc>
+    <lastmod>2026-09-27T16:12:32.453Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/guides/score-matching.html</loc>
+    <lastmod>2026-09-27T16:12:32.453Z</lastmod>
+  </url>
+  <url>
+    <loc>https://apoorvalal.github.io/trex/guides/synthetic-did.html</loc>
+    <lastmod>2026-09-27T16:12:32.454Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/AntitonicScore.html</loc>
-    <lastmod>2026-09-27T15:13:43.909Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.409Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/BaseEstimator.html</loc>
-    <lastmod>2026-09-27T15:13:43.791Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.299Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/LatentFactorGLM.html</loc>
-    <lastmod>2026-09-27T15:13:44.142Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.597Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/LogisticRegression.html</loc>
-    <lastmod>2026-09-27T15:13:43.834Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.332Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/MaximumMomentRestriction.html</loc>
-    <lastmod>2026-09-27T15:13:43.886Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.372Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/PoissonRegression.html</loc>
-    <lastmod>2026-09-27T15:13:43.852Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.346Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/SafetensorsQLORAGenerator.html</loc>
-    <lastmod>2026-09-27T15:13:44.261Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.682Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/SyntheticDID.html</loc>
-    <lastmod>2026-09-27T15:13:44.115Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.577Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/TabularPTGAN.html</loc>
-    <lastmod>2026-09-27T15:13:44.197Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.636Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/TabularWGAN.html</loc>
-    <lastmod>2026-09-27T15:13:44.177Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.623Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.BinaryLogit.html</loc>
-    <lastmod>2026-09-27T15:13:43.924Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.420Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.DeepValueFunction.html</loc>
-    <lastmod>2026-09-27T15:13:44.089Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.557Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.DynamicChoiceModel.html</loc>
-    <lastmod>2026-09-27T15:13:44.041Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.520Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.LinearFlowUtility.html</loc>
-    <lastmod>2026-09-27T15:13:44.073Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.545Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.MultinomialLogit.html</loc>
-    <lastmod>2026-09-27T15:13:43.934Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.428Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.RustNFP.html</loc>
-    <lastmod>2026-09-27T15:13:44.051Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.528Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.discretize_state.html</loc>
-    <lastmod>2026-09-27T15:13:44.087Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.555Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/choice.estimate_transition_matrix.html</loc>
-    <lastmod>2026-09-27T15:13:44.085Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.554Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/cmr.hsic.html</loc>
-    <lastmod>2026-09-27T15:13:43.900Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.403Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/cmr.mmr_loss.html</loc>
-    <lastmod>2026-09-27T15:13:43.899Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.402Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/cmr.rbf_kernel.html</loc>
-    <lastmod>2026-09-27T15:13:43.899Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.402Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/demean.fixed_effect_rank.html</loc>
-    <lastmod>2026-09-27T15:13:43.855Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.348Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/did_estimate.html</loc>
-    <lastmod>2026-09-27T15:13:44.125Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.585Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/estimate_antitonic_score.html</loc>
-    <lastmod>2026-09-27T15:13:43.918Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.416Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/gmm.GMMEstimator.html</loc>
-    <lastmod>2026-09-27T15:13:43.862Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.353Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/gmm.gmm.GMMEstimatorTorch.html</loc>
-    <lastmod>2026-09-27T15:13:43.873Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.362Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/gmm.rho_cue.html</loc>
-    <lastmod>2026-09-27T15:13:43.881Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.367Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/gmm.rho_exponential.html</loc>
-    <lastmod>2026-09-27T15:13:43.880Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.367Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/grouped_fe.chunked_knn_indices.html</loc>
-    <lastmod>2026-09-27T15:13:44.156Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.607Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/grouped_fe.smooth_embeddings_by_knn.html</loc>
-    <lastmod>2026-09-27T15:13:44.156Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.608Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/matrix_completion_estimate.html</loc>
-    <lastmod>2026-09-27T15:13:44.126Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.585Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/panel.SyntheticDIDResult.html</loc>
-    <lastmod>2026-09-27T15:13:44.124Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.584Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/panel.frank_wolfe_step.html</loc>
-    <lastmod>2026-09-27T15:13:44.131Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.589Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/panel.simplex_least_squares_fw.html</loc>
-    <lastmod>2026-09-27T15:13:44.130Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.588Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/prepare_fixed_effects.html</loc>
-    <lastmod>2026-09-27T15:13:43.855Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.347Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/reference/sliced_wasserstein_distance.html</loc>
-    <lastmod>2026-09-27T15:13:44.219Z</lastmod>
+    <lastmod>2026-09-27T16:13:33.652Z</lastmod>
   </url>
   <url>
     <loc>https://apoorvalal.github.io/trex/contributing.html</loc>
-    <lastmod>2026-09-27T15:12:35.267Z</lastmod>
+    <lastmod>2026-09-27T16:12:32.453Z</lastmod>
   </url>
 </urlset>
