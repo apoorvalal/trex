@@ -75,8 +75,16 @@ async function main() {
     await page.setViewportSize({width: 390, height: 844});
     await page.goto(new URL('guides/synthetic-did.html', base).href, {waitUntil: 'networkidle'});
     await page.getByRole('button', {name: 'Toggle sidebar navigation'}).click();
-    await page.waitForFunction(() => document.querySelector('#quarto-sidebar').getBoundingClientRect().height > 100);
+    await page.waitForFunction(() => document.querySelector('#quarto-sidebar').classList.contains('show'));
+    const menu = await page.evaluate(() => {
+      const el = document.querySelector('#quarto-sidebar');
+      return {right: el.getBoundingClientRect().right, viewport: innerWidth,
+              scrollWidth: el.scrollWidth, clientWidth: el.clientWidth};
+    });
+    if (menu.right > menu.viewport + 2 || menu.scrollWidth > menu.clientWidth + 2)
+      failures.push(`Mobile navigation overflow: ${JSON.stringify(menu)}`);
     await page.getByRole('button', {name: 'Toggle sidebar navigation'}).click();
+    await page.waitForFunction(() => document.querySelector('#quarto-sidebar').getBoundingClientRect().width === 0);
     if (screenshotDir) await page.screenshot({path: path.join(screenshotDir, 'mobile.png'), fullPage: true});
     if (failures.length) throw new Error([...new Set(failures)].join('\n'));
     console.log(JSON.stringify({page_viewports_checked: inspected, widths: [1440, 390], search: 'passed', mobile_navigation: 'passed', theme_toggle: 'passed'}));

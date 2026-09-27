@@ -13,4 +13,9 @@ table { display: block; max-width: 100%; overflow-x: auto; }
 .doc-signature { overflow-wrap: anywhere; }
 body.quarto-dark main a, body.quarto-dark .sidebar a { color: #79ced6; }
 body.quarto-dark main code { color: #ef94b7; }
+@media(max-width:991.98px) {
+  #quarto-sidebar { max-width: 100vw; }
+  #quarto-sidebar .sidebar-item-text { white-space: normal; min-width: 0; }
+  #quarto-sidebar .menu-text { white-space: normal; }
+}
 @media(max-width:600px) { h1 { font-size: 1.85rem; } .lead { font-size: 1.06rem; } main { overflow-wrap: anywhere; } }
