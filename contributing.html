@@ -508,7 +508,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./guides/llm-generators.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text">Optional local language-model generators</span></a>
+ <span class="menu-text">Language-model row generators</span></a>
   </div>
 </li>
       </ul>
@@ -590,7 +590,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>The builder generates API pages with Quartodoc, checks coverage of public exports, records the source revision and environment, executes the vignettes, renders the website, and checks internal links and assets. Output goes to <code>docs/_site/</code>; it is not committed to the source branch. During writing:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> docs/build.py <span class="at">--api-only</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> preview docs</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Preview is not a substitute for the final executable build. All lightweight examples use explicit seeds and the CPU. The optional LLM guide is labeled non-executed and does not download model weights. Figures and printed tables on the other worked pages are produced by their code, not copied manually. CI additionally checks every page in Chromium at desktop and mobile widths, including equation rendering, search, theme switching and sidebar navigation.</p>
+<p>Preview is not a substitute for the final executable build. All lightweight examples use explicit seeds and the CPU. The LLM guide replays an executed CUDA experiment: each build verifies saved hashes and raw completions, then recomputes the tables and figures without downloading weights or training. Its GPU reproduction script is linked from the guide. Figures and printed tables on the other worked pages are likewise produced by their code. CI additionally checks every page in Chromium at desktop and mobile widths, including equation rendering, search, theme switching and sidebar navigation.</p>
 </section>
 <section id="how-publication-works" class="level2">
 <h2 class="anchored" data-anchor-id="how-publication-works">How publication works</h2>

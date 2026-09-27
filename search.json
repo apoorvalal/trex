@@ -1068,7 +1068,7 @@
     "href": "guides/gmm.html#weighting-dependence-and-inference",
     "title": "Instrumental variables and GMM",
     "section": "Weighting, dependence and inference",
-    "text": "Weighting, dependence and inference\nWith G=\\partial\\bar g_n(\\theta)/\\partial\\theta' and a consistent long-run covariance \\widehat\\Omega, the reported covariance is\n\n\\widehat V=\\frac1n(G'WG)^{-1}G'W\\widehat\\Omega WG(G'WG)^{-1}.\n\nUnder independent sampling, Trex uses the uncentered second product n^{-1}\\sum_i g_i g_i' (HC0 convention). With ordered, weakly dependent observations, iid=False uses Bartlett/Newey–West accumulation for both optimal weights and final inference:\n\n\\widehat\\Omega=\\widehat\\Gamma_0+\n\\sum_{\\ell=1}^{L}\\left(1-\\frac{\\ell}{L+1}\\right)\n(\\widehat\\Gamma_\\ell+\\widehat\\Gamma_\\ell'),\\quad\n\\widehat\\Gamma_\\ell=\\frac1n\\sum_{i=\\ell+1}^n g_i g_{i-\\ell}'.\n\nSet max_lags explicitly when a particular bandwidth is part of the design. Reordering the rows changes this calculation. HAC is not a substitute for an arbitrary cluster structure.\n\n\nShow Python\nm = fits[\"torch\"]\nprint({\"moment_mean\": iv_moments(Z, y, X, m.theta_).mean(0).round(5).tolist(),\n       \"parameter_covariance_shape\": list(m.covariance_.shape),\n       \"backend_coefficient_max_gap\": float(np.max(np.abs(m.theta_-fits[\"scipy\"].theta_)))})\nassert np.allclose(m.covariance_, m.vtheta_/n)\n\n\n{'moment_mean': [6e-05, -0.00674, 0.01349], 'parameter_covariance_shape': [2, 2], 'backend_coefficient_max_gap': 3.486611444003529e-09}\n\n\nUse covariance_ for estimated coefficient variance. vtheta_ retains the asymptotic, non-divided scale. A fixed positive-definite matrix is accepted as weighting_matrix; \"identity\" avoids the second weighting step. init_params determines parameter dimension when it differs from x.shape[1], including nonlinear moment models.\nRank-deficient moment covariances and locally unidentified parameters raise errors. Near-singularity can still produce unstable estimates before a rank check fails: examine instrument relevance, perturbations and uncertainty rather than taking optimizer success as identification.\nAPI: GMMEstimator, Torch backend, SciPy backend. Background: Hansen (1982) and Newey–West (1987), linked in references.",
+    "text": "Weighting, dependence and inference\nWith G=\\partial\\bar g_n(\\theta)/\\partial\\theta' and a consistent long-run covariance \\widehat\\Omega, the reported covariance is\n\n\\widehat V=\\frac1n(G'WG)^{-1}G'W\\widehat\\Omega WG(G'WG)^{-1}.\n\nUnder independent sampling, Trex uses the uncentered second product n^{-1}\\sum_i g_i g_i' (HC0 convention). With ordered, weakly dependent observations, iid=False uses Bartlett/Newey–West accumulation for both optimal weights and final inference:\n\n\\widehat\\Omega=\\widehat\\Gamma_0+\n\\sum_{\\ell=1}^{L}\\left(1-\\frac{\\ell}{L+1}\\right)\n(\\widehat\\Gamma_\\ell+\\widehat\\Gamma_\\ell'),\\quad\n\\widehat\\Gamma_\\ell=\\frac1n\\sum_{i=\\ell+1}^n g_i g_{i-\\ell}'.\n\nSet max_lags explicitly when a particular bandwidth is part of the design. Reordering the rows changes this calculation. HAC is not a substitute for an arbitrary cluster structure.\n\n\nShow Python\nm = fits[\"torch\"]\nprint({\"moment_mean\": iv_moments(Z, y, X, m.theta_).mean(0).round(5).tolist(),\n       \"parameter_covariance_shape\": list(m.covariance_.shape),\n       \"backend_coefficient_max_gap\": float(np.max(np.abs(m.theta_-fits[\"scipy\"].theta_)))})\nassert np.allclose(m.covariance_, m.vtheta_/n)\n\n\n{'moment_mean': [6e-05, -0.00674, 0.01349], 'parameter_covariance_shape': [2, 2], 'backend_coefficient_max_gap': 3.4866181053416767e-09}\n\n\nUse covariance_ for estimated coefficient variance. vtheta_ retains the asymptotic, non-divided scale. A fixed positive-definite matrix is accepted as weighting_matrix; \"identity\" avoids the second weighting step. init_params determines parameter dimension when it differs from x.shape[1], including nonlinear moment models.\nRank-deficient moment covariances and locally unidentified parameters raise errors. Near-singularity can still produce unstable estimates before a rank check fails: examine instrument relevance, perturbations and uncertainty rather than taking optimizer success as identification.\nAPI: GMMEstimator, Torch backend, SciPy backend. Background: Hansen (1982) and Newey–West (1987), linked in references.",
     "crumbs": [
       "Get started",
       "Regression & moments",
@@ -1663,61 +1663,97 @@
   {
     "objectID": "guides/llm-generators.html",
     "href": "guides/llm-generators.html",
-    "title": "Optional local language-model generators",
+    "title": "Language-model row generators",
     "section": "",
-    "text": "Trex’s optional wrappers turn numeric training rows into text and parse generated text back into numeric rows. SafetensorsLLMInContextGenerator.fit stores examples; it does not update model weights. sample loads a local or Hugging Face model/tokenizer, constructs few-shot prompts, generates text, and collects parseable rows.\nSafetensorsQLORAGenerator adds fit_adapter, which trains low-rank adapters on row-generation completions. For a frozen weight matrix W, LoRA uses W+BA with a small inner dimension. QLoRA additionally loads the base in four-bit form while training the adapters at a higher compute precision. This reduces trainable state and memory, but does not make arbitrary models fit on any device.",
+    "text": "Trex can generate numeric rows with a frozen language model, or first train a QLoRA adapter on the row-generation task. This example runs both routes with Qwen/Qwen2.5-0.5B-Instruct on an RTX 5070. It uses 800 training rows, 512 held-out rows and 256 returned samples per generator.\nResult: one epoch of adaptation makes CSV generation reliable and reduces exact training-row copying, but does not improve overall distributional fit in this run. Empirical resampling has a smaller joint-distribution discrepancy than either language-model generator.\nThe GPU run was executed on September 27, 2026. All tables and figures below are recomputed from its saved data whenever this site is built; the complete prompts, completions and reproduction code are downloadable.",
     "crumbs": [
       "Get started",
       "Simulation",
-      "Optional local language-model generators"
+      "Language-model row generators"
     ]
   },
   {
-    "objectID": "guides/llm-generators.html#two-distinct-operations",
-    "href": "guides/llm-generators.html#two-distinct-operations",
-    "title": "Optional local language-model generators",
-    "section": "",
-    "text": "Trex’s optional wrappers turn numeric training rows into text and parse generated text back into numeric rows. SafetensorsLLMInContextGenerator.fit stores examples; it does not update model weights. sample loads a local or Hugging Face model/tokenizer, constructs few-shot prompts, generates text, and collects parseable rows.\nSafetensorsQLORAGenerator adds fit_adapter, which trains low-rank adapters on row-generation completions. For a frozen weight matrix W, LoRA uses W+BA with a small inner dimension. QLoRA additionally loads the base in four-bit form while training the adapters at a higher compute precision. This reduces trainable state and memory, but does not make arbitrary models fit on any device.",
+    "objectID": "guides/llm-generators.html#data-and-task",
+    "href": "guides/llm-generators.html#data-and-task",
+    "title": "Language-model row generators",
+    "section": "Data and task",
+    "text": "Data and task\nEach row contains age, a binary employment indicator and annual income in thousands. The data-generating process has a point mass at zero income and a positive, age-dependent income distribution among employed people:\n\n\\begin{aligned}\nA&\\sim\\operatorname{Uniform}\\{18,\\ldots,65\\},\\\\\nE\\mid A&\\sim\\operatorname{Bernoulli}\n  \\left(\\operatorname{logit}^{-1}[-0.2+0.035(A-35)]\\right),\\\\\nY&=E\\cdot\\operatorname{round}\n  \\left(\\exp[3.2+0.025(A-35)+0.35Z],\\,2\\right),\n  \\qquad Z\\sim N(0,1).\n\\end{aligned}\n\nThe models see numeric training examples and the column names, not this formula or the held-out rows. Seed 20260927 generates the training, held-out and independent-reference samples in that order. Here are the first eight training observations:\n\n\n\n\n\n\n\n\n\nage\nemployed\nincome\n\n\n\n\n0\n44.0\n1.0\n24.84\n\n\n1\n22.0\n0.0\n0.00\n\n\n2\n37.0\n0.0\n0.00\n\n\n3\n37.0\n0.0\n0.00\n\n\n4\n29.0\n0.0\n0.00\n\n\n5\n20.0\n1.0\n23.66\n\n\n6\n63.0\n1.0\n44.31\n\n\n7\n61.0\n1.0\n47.27\n\n\n\n\n\n\n\nThe independent target draw is a finite-sample reference, not a fitted method or a lower bound on the discrepancy. Empirical resampling draws 256 rows with replacement from the same training set, using seed 725.",
     "crumbs": [
       "Get started",
       "Simulation",
-      "Optional local language-model generators"
+      "Language-model row generators"
     ]
   },
   {
-    "objectID": "guides/llm-generators.html#setup-and-example",
-    "href": "guides/llm-generators.html#setup-and-example",
-    "title": "Optional local language-model generators",
-    "section": "Setup and example",
-    "text": "Setup and example\nThe examples on this page are not executed by the documentation build. They require an explicitly selected model, substantial model files and additional dependencies; the ordinary site build does not download weights or start adapter training. The core package imports these wrappers without eagerly importing Transformers or bitsandbytes.\nInstall the optional libraries into the environment in which the chosen model runs:\npython -m pip install transformers safetensors accelerate peft bitsandbytes\nAvailability of four-bit loading depends on the installed library versions and hardware. Use a supported CUDA environment for QLoRA; do not infer MPS or CPU compatibility from a generic device parameter.\nimport numpy as np\nfrom trex import SafetensorsLLMInContextGenerator\n\n# A local model/tokenizer directory selected and downloaded separately.\nmodel_directory = \"/path/to/your/model\"\ntraining_rows = np.array([[24, 1, 12.5], [40, 0, 21.0], [33, 1, 17.2]])\ngenerator = SafetensorsLLMInContextGenerator(\n    model_path=model_directory, examples=3, rows_per_prompt=4,\n    max_new_tokens=256, max_attempts=10, temperature=0.7, device=\"cuda\",\n).fit(training_rows, column_names=[\"age\", \"employed\", \"income\"])\nsynthetic_rows = generator.sample(12)\nThose three rows illustrate the interface only; they are far too small a sample on which to learn or assess a joint distribution. Use real training, validation and held-out partitions in an application.\nfrom trex import SafetensorsQLORAGenerator\n\nadapted = SafetensorsQLORAGenerator(\n    model_path=model_directory, examples=3, load_in_4bit=True, device=\"cuda\",\n).fit(training_rows, column_names=[\"age\", \"employed\", \"income\"])\nadapted.fit_adapter(\n    output_dir=\"adapters/row-generator\", num_train_epochs=1,\n    rows_per_completion=2, lora_r=16, lora_alpha=32,\n)\nsynthetic_rows = adapted.sample(12)",
+    "objectID": "guides/llm-generators.html#frozen-in-context-generation",
+    "href": "guides/llm-generators.html#frozen-in-context-generation",
+    "title": "Language-model row generators",
+    "section": "Frozen in-context generation",
+    "text": "Frozen in-context generation\nfit stores rows; it does not update the base model’s parameters. Each prompt shows eight randomly selected training rows and requests eight new CSV rows. Trex uses its plain-text row prompt, not the model’s chat template.\nThe following is the configuration executed on the GPU. The downloadable runner also records every prompt, completion, parsing attempt and timing.\n\n\nShow Python\nimport numpy as np\nimport torch\nfrom huggingface_hub import snapshot_download\nfrom trex import SafetensorsLLMInContextGenerator, SafetensorsQLORAGenerator\n\nmodel_directory = snapshot_download(\n    \"Qwen/Qwen2.5-0.5B-Instruct\",\n    revision=\"7ae557604adf67be50417f59c2c2f167def9a775\",\n    allow_patterns=[\"*.json\", \"*.safetensors\", \"merges.txt\", \"vocab.json\"],\n)\ntraining_rows = np.loadtxt(\"train.csv\", delimiter=\",\", skiprows=1)\nsettings = dict(\n    model_path=model_directory, examples=8, rows_per_prompt=8,\n    max_new_tokens=384, max_attempts=128, temperature=0.7,\n    load_in_4bit=True, device=\"cuda\",\n)\nfrozen = SafetensorsLLMInContextGenerator(**settings).fit(\n    training_rows, column_names=[\"age\", \"employed\", \"income\"],\n)\nnp.random.seed(724)\ntorch.manual_seed(724)\nfrozen_rows = frozen.sample(256)\n\n\nsample parses numeric lines with the required number of columns, retries when insufficient rows have been collected, and returns the first requested number. It does not enforce binary columns, enforce the data-generating process’s support, or remove copied rows.",
     "crumbs": [
       "Get started",
       "Simulation",
-      "Optional local language-model generators"
+      "Language-model row generators"
     ]
   },
   {
-    "objectID": "guides/llm-generators.html#text-likelihood-is-not-a-tabular-likelihood",
-    "href": "guides/llm-generators.html#text-likelihood-is-not-a-tabular-likelihood",
-    "title": "Optional local language-model generators",
-    "section": "Text likelihood is not a tabular likelihood",
-    "text": "Text likelihood is not a tabular likelihood\nTokenization, column order, numeric formatting and prompting all change the task seen by the language model. A probability for a sequence of tokens is not automatically a density for a continuous row. Parsing and rejection further change the distribution of returned samples. Record the model revision, tokenizer, prompt settings, sampling parameters, adapter and rejection behavior when comparing experiments.\nEnforce schema and support restrictions after generation, and distinguish invalid output from a valid but unusual observation. A successfully parsed row need not satisfy accounting identities or structural restrictions. Check duplication and proximity to training examples; generative modeling does not establish privacy or absence of memorization.",
+    "objectID": "guides/llm-generators.html#training-and-reloading-a-qlora-adapter",
+    "href": "guides/llm-generators.html#training-and-reloading-a-qlora-adapter",
+    "title": "Language-model row generators",
+    "section": "Training and reloading a QLoRA adapter",
+    "text": "Training and reloading a QLoRA adapter\nFor a frozen matrix W, LoRA trains the low-rank update BA in W+BA. Here the base uses four-bit NF4 with double quantization and BF16 compute, and the adapter has rank 16, scaling parameter 32 and dropout 0.05. Generation reloads the same quantization configuration as training.\n\n\nShow Python\nadapted = SafetensorsQLORAGenerator(**settings).fit(\n    training_rows, column_names=[\"age\", \"employed\", \"income\"],\n)\nadapted.fit_adapter(\n    output_dir=\"adapters/row-generator\",\n    num_train_epochs=1, train_samples=512, rows_per_completion=4,\n    per_device_train_batch_size=1, gradient_accumulation_steps=8,\n    max_length=384, learning_rate=2e-4,\n    lora_r=16, lora_alpha=32, lora_dropout=0.05, seed=123,\n)\nnp.random.seed(724)\ntorch.manual_seed(724)\nadapted_rows = adapted.sample(256)\n\n\nThe 512 training examples are prompt/completion pairs constructed solely from the 800 training rows, not 512 additional observations. Each completion contains four rows. Prompt and padding tokens have loss labels masked out; only completion tokens train the adapter. All examples retained supervised tokens after truncation: 31–47 tokens per example.\nThe completed run performed 64 optimizer steps, trained 8,798,208 adapter parameters, saved the adapter, and reloaded it for generation.\n\n\n\n\n\nTraining loss averaged over each logged window. This is completion-token loss, not held-out tabular fit.\n\n\n\n\nThe training loss decreases from 1.023 in the first logged window to 0.930 in the last. It is not monotone, and a lower token loss does not guarantee a better joint distribution of numeric observations.",
     "crumbs": [
       "Get started",
       "Simulation",
-      "Optional local language-model generators"
+      "Language-model row generators"
     ]
   },
   {
-    "objectID": "guides/llm-generators.html#when-is-this-useful",
-    "href": "guides/llm-generators.html#when-is-this-useful",
-    "title": "Optional local language-model generators",
-    "section": "When is this useful?",
-    "text": "When is this useful?\nThese wrappers make it possible to explore whether pretrained language-model representations help with a narrowly specified numeric simulation task. They are not the default recommendation for ordinary low-dimensional tabular data. Compare against empirical resampling, parametric baselines, mixtures, and tabular GAN/diffusion models, accounting for model loading and adaptation cost.\nHTTP serving, prompt experiments and llama.cpp endpoint orchestration are outside this package API. These classes use the Transformers/safetensors route directly.\nAPI: SafetensorsLLMInContextGenerator, SafetensorsQLORAGenerator.",
+    "objectID": "guides/llm-generators.html#actual-generated-rows",
+    "href": "guides/llm-generators.html#actual-generated-rows",
+    "title": "Language-model row generators",
+    "section": "Actual generated rows",
+    "text": "Actual generated rows\nThese are the first six returned rows, without selection, clipping, rounding or deduplication after generation.\n\nFrozen QwenQwen + QLoRA\n\n\n\n\n\n\n\n\n\n\n\nage\nemployed\nincome\n\n\n\n\n0\n51.0\n1.0\n38.64\n\n\n1\n52.0\n1.0\n42.14\n\n\n2\n53.0\n1.0\n32.18\n\n\n3\n51.0\n1.0\n38.64\n\n\n4\n52.0\n1.0\n42.14\n\n\n5\n52.0\n1.0\n42.14\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nage\nemployed\nincome\n\n\n\n\n0\n37.0\n1.0\n36.64\n\n\n1\n28.0\n1.0\n20.65\n\n\n2\n58.0\n1.0\n63.99\n\n\n3\n36.0\n1.0\n32.43\n\n\n4\n23.0\n0.0\n0.00\n\n\n5\n36.0\n1.0\n20.23\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nHeld-out data and all 256 returned rows from each language-model generator. Green denotes employment equal to one; red denotes other values. Shared axes expose support and distribution differences.",
     "crumbs": [
       "Get started",
       "Simulation",
-      "Optional local language-model generators"
+      "Language-model row generators"
+    ]
+  },
+  {
+    "objectID": "guides/llm-generators.html#distributional-fidelity",
+    "href": "guides/llm-generators.html#distributional-fidelity",
+    "title": "Language-model row generators",
+    "section": "Distributional fidelity",
+    "text": "Distributional fidelity\nDistances are computed against the 512 held-out rows after standardizing each column by its training-set mean and standard deviation. Sliced Wasserstein uses 128 projections with seed 91. Smaller distances and correlation errors are better. All returned rows are finite; the seven support-invalid frozen-model rows remain in the primary metrics.\n\n\n\n\n\n\n\n\n\nSliced W1\nMarginal W1\nCorrelation error\nInvalid support (%)\nEmployed-row copies (%)\n\n\nGenerator\n\n\n\n\n\n\n\n\n\nIndependent target draw\n0.078\n0.075\n0.051\n0.000\n0.000\n\n\nEmpirical resampling\n0.158\n0.161\n0.105\n0.000\n100.000\n\n\nFrozen Qwen (ICL)\n0.198\n0.160\n0.549\n2.734\n74.576\n\n\nQwen + QLoRA\n0.270\n0.285\n0.206\n0.000\n0.629\n\n\n\n\n\n\n\nThe frozen model’s sliced-Wasserstein distance is 0.198, versus 0.270 after QLoRA and 0.158 for resampling. Adaptation improves correlation structure, but worsens the marginal distributions: employment shifts to 62.1%, compared with 47.7% in the held-out sample, and mean income rises to 23.04 rather than 16.96 thousand.\n\n\n\n\n\n\n\n\n\nMean age\nEmployed (%)\nMean income (thousands)\n\n\n\n\nHeld-out target\n40.35\n47.66\n16.96\n\n\nIndependent target draw\n41.55\n51.95\n17.73\n\n\nEmpirical resampling\n42.89\n53.91\n21.05\n\n\nFrozen Qwen (ICL)\n42.72\n46.09\n21.21\n\n\nQwen + QLoRA\n43.92\n62.11\n23.04\n\n\n\n\n\n\n\n\n\n\n\n\nEmpirical distribution functions. Adaptation generates too few zero-income rows and shifts the age distribution upward.\n\n\n\n\nCopying also matters. Among generated rows with employment equal to one, 74.6% of frozen-model rows exactly match a training row, versus 0.63% after adaptation. This is a diagnostic, not a privacy guarantee. Zero-income rows naturally repeat because age takes only 48 integer values; counting every such match as memorization would be misleading. Resampling intentionally copies its entire output.\nThe summaries report the percentage of rows whose employment field is exactly one, rather than treating an invalid numeric indicator as a probability. This is one fixed-budget run, with no tuning on the held-out sample; it establishes the behavior of this example, not a general ranking of models.",
+    "crumbs": [
+      "Get started",
+      "Simulation",
+      "Language-model row generators"
+    ]
+  },
+  {
+    "objectID": "guides/llm-generators.html#parsing-reliability-and-cost",
+    "href": "guides/llm-generators.html#parsing-reliability-and-cost",
+    "title": "Language-model row generators",
+    "section": "Parsing reliability and cost",
+    "text": "Parsing reliability and cost\nFrozen Qwen frequently writes prose or Python code instead of the requested CSV. 44 of its 62 attempts return no parseable rows. Adaptation eliminates empty attempts in this run, although neither model reliably returns exactly the requested row count. Valid CSV is distinct from a valid economic row.\n\n\n\n\n\n\n\n\n\nReturned rows\nGeneration attempts\nZero-row attempts\nParsed before truncation\n\n\n\n\nFrozen Qwen\n256\n62\n44\n262\n\n\nQwen + QLoRA\n256\n38\n0\n256\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nWall seconds\nModel-load seconds (included)\nPeak Torch allocation (GiB)\n\n\nOperation\n\n\n\n\n\n\n\nTrain and save adapter\n91.67\nNaN\n1.20\n\n\nFrozen: generate 256 rows\n374.11\n1.37\n0.45\n\n\nQLoRA: generate 256 rows\n78.72\n0.66\n0.76\n\n\n\n\n\n\n\nSampling takes 374 seconds frozen and 79 seconds adapted; the latter also required 92 seconds of training. Timings include model loading, all unsuccessful generation attempts and parsing. Training includes loading, dataset preparation and saving. Initial model download is excluded. Memory is PyTorch’s peak allocated memory, not total GPU or system usage. These wrappers issue serial generation calls; this is not an optimized batched serving benchmark.",
+    "crumbs": [
+      "Get started",
+      "Simulation",
+      "Language-model row generators"
+    ]
+  },
+  {
+    "objectID": "guides/llm-generators.html#reproduce-the-run",
+    "href": "guides/llm-generators.html#reproduce-the-run",
+    "title": "Language-model row generators",
+    "section": "Reproduce the run",
+    "text": "Reproduce the run\n\nReplication ZIP: all input and output CSVs, exact prompts/completions, training log, environment, scoring code and the source snapshot used for execution.\nSaved execution record and SHA-256 checksums.\nGPU runner and saved-data analysis.\n\nInstall Trex from this repository in a CUDA-enabled environment. The optional runtime dependencies are transformers, safetensors, accelerate, peft and bitsandbytes. The exact versions used here are:\n\n\n\n\n\n\n\n\n\nExecuted version\n\n\n\n\nPython\n3.12.12\n\n\ntorch\n2.9.1\n\n\ntransformers\n5.6.0.dev0\n\n\npeft\n0.18.1\n\n\naccelerate\n1.12.0\n\n\nbitsandbytes\n0.48.2\n\n\nnumpy\n2.4.2\n\n\nsafetensors\n0.7.0\n\n\ndatasets\n4.4.2\n\n\n\n\n\n\n\nFrom the repository root:\npython benchmarks/llm_generators/run.py --out tmp/llm-guide/executed\nThe script regenerates the data, downloads the pinned public checkpoint, trains and saves an adapter, reloads it, and records both generators’ outputs. The seed=123 argument controls construction of adapter-training examples; the current Trainer uses its default training seed 42. Sampling seeds are reset to 724. Use the complete runner to preserve the order of RNG-consuming operations. Library or kernel changes can still change sampled text.\nThe saved-data build verifies file hashes, reparses all raw completions, checks that prompting used only training rows, and reproduces the metrics. Neither it nor CI requires model weights or a GPU. Base-model and adapter weights are not included in the small replication download; the record includes the trained adapter’s hash.\nFor this low-dimensional task, resampling remains the more effective baseline. These APIs are useful for testing language-model generation, but a token likelihood is not a continuous tabular density, and a successfully trained adapter is not evidence of improved synthetic data.\nRelated: tabular GAN and diffusion models. API: SafetensorsLLMInContextGenerator, SafetensorsQLORAGenerator.",
+    "crumbs": [
+      "Get started",
+      "Simulation",
+      "Language-model row generators"
     ]
   },
   {
@@ -2404,7 +2440,7 @@
     "href": "contributing.html#build-the-site",
     "title": "Development and documentation",
     "section": "Build the site",
-    "text": "Build the site\nInstall Quarto 1.8.27 and the Python documentation extra. Use the same Python environment for the package, Quartodoc and executable examples:\npython -m pip install -e '.[docs]'\npython docs/build.py\nThe builder generates API pages with Quartodoc, checks coverage of public exports, records the source revision and environment, executes the vignettes, renders the website, and checks internal links and assets. Output goes to docs/_site/; it is not committed to the source branch. During writing:\npython docs/build.py --api-only\nquarto preview docs\nPreview is not a substitute for the final executable build. All lightweight examples use explicit seeds and the CPU. The optional LLM guide is labeled non-executed and does not download model weights. Figures and printed tables on the other worked pages are produced by their code, not copied manually. CI additionally checks every page in Chromium at desktop and mobile widths, including equation rendering, search, theme switching and sidebar navigation.",
+    "text": "Build the site\nInstall Quarto 1.8.27 and the Python documentation extra. Use the same Python environment for the package, Quartodoc and executable examples:\npython -m pip install -e '.[docs]'\npython docs/build.py\nThe builder generates API pages with Quartodoc, checks coverage of public exports, records the source revision and environment, executes the vignettes, renders the website, and checks internal links and assets. Output goes to docs/_site/; it is not committed to the source branch. During writing:\npython docs/build.py --api-only\nquarto preview docs\nPreview is not a substitute for the final executable build. All lightweight examples use explicit seeds and the CPU. The LLM guide replays an executed CUDA experiment: each build verifies saved hashes and raw completions, then recomputes the tables and figures without downloading weights or training. Its GPU reproduction script is linked from the guide. Figures and printed tables on the other worked pages are likewise produced by their code. CI additionally checks every page in Chromium at desktop and mobile widths, including equation rendering, search, theme switching and sidebar navigation.",
     "crumbs": [
       "Get started",
       "Development and documentation"

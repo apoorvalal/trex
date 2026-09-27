@@ -555,7 +555,7 @@ window.Quarto = {
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../guides/llm-generators.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text">Optional local language-model generators</span></a>
+ <span class="menu-text">Language-model row generators</span></a>
   </div>
 </li>
       </ul>
@@ -640,7 +640,7 @@ y_{it}=x_{it}'\beta+\alpha_i+\gamma_t+\epsilon_{it},
 <section id="a-weighted-two-way-panel" class="level2">
 <h2 class="anchored" data-anchor-id="a-weighted-two-way-panel">A weighted two-way panel</h2>
 <p>The simulation correlates a regressor with unit effects and makes noise variance depend on that regressor. Inverse-variance weights are known here because this is a controlled example. In real data, weights require their own justification.</p>
-<div id="5f331446" class="cell" data-execution_count="1">
+<div id="2be66840" class="cell" data-execution_count="1">
 <details class="code-fold">
 <summary>Show Python</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
@@ -716,7 +716,7 @@ y_{it}=x_{it}'\beta+\alpha_i+\gamma_t+\epsilon_{it},
 \left(\sum_i w_i^2\widetilde x_i\widetilde x_i'r_i^2\right)(A'A)^{-1},
 </span></p>
 <p>with <span class="math inline">\widehat V_{\rm HC1}=n\widehat V_{\rm HC0}/(n-k)</span>. Here <span class="math inline">k</span> counts retained slope columns <strong>and the rank of absorbed effects</strong>. In a connected two-way panel, absorbed rank is <span class="math inline">N+T-1</span>; disconnected support changes that count. For large three-or-more-way designs, supply <code>df_absorbed</code> when the exact-rank calculation exceeds the implementation’s level-space bound.</p>
-<div id="6828c65a" class="cell" data-execution_count="2">
+<div id="a8fb3b96" class="cell" data-execution_count="2">
 <details class="code-fold">
 <summary>Show Python</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>({<span class="st">"residual_df"</span>: within.df_resid_,</span>

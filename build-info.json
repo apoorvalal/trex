@@ -1,8 +1,8 @@
 {
   "source_repository": "https://github.com/apoorvalal/trex",
-  "source_commit": "081a1cbfbd7058a56b69af87f5c9d37951bec5e6",
+  "source_commit": "2af5c2c2d0a59260d4a371dadc79298c1c486254",
   "tracked_source_dirty": false,
-  "built_at_utc": "2026-09-27T16:13:33.709980+00:00",
+  "built_at_utc": "2026-09-27T19:31:03.690699+00:00",
   "python": "3.12.14",
   "quarto": "1.8.27",
   "dependencies": {
@@ -26,12 +26,14 @@
     "latent-factors",
     "likelihood-glms",
     "linear-regression",
+    "llm-generators",
     "matrix-completion",
     "score-matching",
     "static-choice",
     "synthetic-did"
   ],
-  "nonexecuted_guides": [
+  "gpu_fit_replay_guides": [
     "llm-generators"
-  ]
+  ],
+  "nonexecuted_guides": []
 }

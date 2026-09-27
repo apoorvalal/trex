@@ -6,9 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="description" content="In-context row generation and QLoRA adapters, with explicit dependency and evaluation boundaries.">
+<meta name="description" content="An executed comparison of frozen Qwen and a trained QLoRA adapter: generated rows, held-out fit, training loss and GPU costs.">
 
-<title>Optional local language-model generators – Trex</title>
+<title>Language-model row generators – Trex</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -110,6 +110,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   }
 }</script>
 <style>html{ scroll-behavior: smooth; }</style>
+
+
+
 
   <script>window.backupDefine = window.define; window.define = undefined;</script><script src="../assets/katex/katex.min.js"></script>
   <script>document.addEventListener("DOMContentLoaded", function () {
@@ -377,7 +380,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../guides/generative-models.html">Simulation</a></li><li class="breadcrumb-item"><a href="../guides/llm-generators.html">Optional local language-model generators</a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../guides/generative-models.html">Simulation</a></li><li class="breadcrumb-item"><a href="../guides/llm-generators.html">Language-model row generators</a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
     </div>
@@ -553,7 +556,7 @@ window.Quarto = {
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../guides/llm-generators.html" class="sidebar-item-text sidebar-link active">
- <span class="menu-text">Optional local language-model generators</span></a>
+ <span class="menu-text">Language-model row generators</span></a>
   </div>
 </li>
       </ul>
@@ -592,10 +595,13 @@ window.Quarto = {
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#two-distinct-operations" id="toc-two-distinct-operations" class="nav-link active" data-scroll-target="#two-distinct-operations">Two distinct operations</a></li>
-  <li><a href="#setup-and-example" id="toc-setup-and-example" class="nav-link" data-scroll-target="#setup-and-example">Setup and example</a></li>
-  <li><a href="#text-likelihood-is-not-a-tabular-likelihood" id="toc-text-likelihood-is-not-a-tabular-likelihood" class="nav-link" data-scroll-target="#text-likelihood-is-not-a-tabular-likelihood">Text likelihood is not a tabular likelihood</a></li>
-  <li><a href="#when-is-this-useful" id="toc-when-is-this-useful" class="nav-link" data-scroll-target="#when-is-this-useful">When is this useful?</a></li>
+  <li><a href="#data-and-task" id="toc-data-and-task" class="nav-link active" data-scroll-target="#data-and-task">Data and task</a></li>
+  <li><a href="#frozen-in-context-generation" id="toc-frozen-in-context-generation" class="nav-link" data-scroll-target="#frozen-in-context-generation">Frozen in-context generation</a></li>
+  <li><a href="#training-and-reloading-a-qlora-adapter" id="toc-training-and-reloading-a-qlora-adapter" class="nav-link" data-scroll-target="#training-and-reloading-a-qlora-adapter">Training and reloading a QLoRA adapter</a></li>
+  <li><a href="#actual-generated-rows" id="toc-actual-generated-rows" class="nav-link" data-scroll-target="#actual-generated-rows">Actual generated rows</a></li>
+  <li><a href="#distributional-fidelity" id="toc-distributional-fidelity" class="nav-link" data-scroll-target="#distributional-fidelity">Distributional fidelity</a></li>
+  <li><a href="#parsing-reliability-and-cost" id="toc-parsing-reliability-and-cost" class="nav-link" data-scroll-target="#parsing-reliability-and-cost">Parsing reliability and cost</a></li>
+  <li><a href="#reproduce-the-run" id="toc-reproduce-the-run" class="nav-link" data-scroll-target="#reproduce-the-run">Reproduce the run</a></li>
   </ul>
 <div class="toc-actions"><ul><li><a href="https://github.com/apoorvalal/trex/edit/main/docs/guides/llm-generators.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/apoorvalal/trex/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
     </div>
@@ -603,14 +609,14 @@ window.Quarto = {
 <main class="content" id="quarto-document-content">
 
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../guides/generative-models.html">Simulation</a></li><li class="breadcrumb-item"><a href="../guides/llm-generators.html">Optional local language-model generators</a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../guides/generative-models.html">Simulation</a></li><li class="breadcrumb-item"><a href="../guides/llm-generators.html">Language-model row generators</a></li></ol></nav>
 <div class="quarto-title">
-<h1 class="title">Optional local language-model generators</h1>
+<h1 class="title">Language-model row generators</h1>
 </div>
 
 <div>
   <div class="description">
-    In-context row generation and QLoRA adapters, with explicit dependency and evaluation boundaries.
+    An executed comparison of frozen Qwen and a trained QLoRA adapter: generated rows, held-out fit, training loss and GPU costs.
   </div>
 </div>
 
@@ -627,50 +633,583 @@ window.Quarto = {
 </header>
 
 
-<section id="two-distinct-operations" class="level2">
-<h2 class="anchored" data-anchor-id="two-distinct-operations">Two distinct operations</h2>
-<p>Trex’s optional wrappers turn numeric training rows into text and parse generated text back into numeric rows. <code>SafetensorsLLMInContextGenerator.fit</code> stores examples; it does <strong>not</strong> update model weights. <code>sample</code> loads a local or Hugging Face model/tokenizer, constructs few-shot prompts, generates text, and collects parseable rows.</p>
-<p><code>SafetensorsQLORAGenerator</code> adds <code>fit_adapter</code>, which trains low-rank adapters on row-generation completions. For a frozen weight matrix <span class="math inline">W</span>, LoRA uses <span class="math inline">W+BA</span> with a small inner dimension. QLoRA additionally loads the base in four-bit form while training the adapters at a higher compute precision. This reduces trainable state and memory, but does not make arbitrary models fit on any device.</p>
+<p>Trex can generate numeric rows with a frozen language model, or first train a QLoRA adapter on the row-generation task. This example <strong>runs both routes</strong> with <code>Qwen/Qwen2.5-0.5B-Instruct</code> on an RTX 5070. It uses 800 training rows, 512 held-out rows and 256 returned samples per generator.</p>
+<p><strong>Result:</strong> one epoch of adaptation makes CSV generation reliable and reduces exact training-row copying, but does <strong>not</strong> improve overall distributional fit in this run. Empirical resampling has a smaller joint-distribution discrepancy than either language-model generator.</p>
+<p>The GPU run was executed on September 27, 2026. All tables and figures below are recomputed from its saved data whenever this site is built; the complete prompts, completions and reproduction code are <a href="#reproduce-the-run">downloadable</a>.</p>
+<section id="data-and-task" class="level2">
+<h2 class="anchored" data-anchor-id="data-and-task">Data and task</h2>
+<p>Each row contains age, a binary employment indicator and annual income in thousands. The data-generating process has a point mass at zero income and a positive, age-dependent income distribution among employed people:</p>
+<p><span class="math display">
+\begin{aligned}
+A&amp;\sim\operatorname{Uniform}\{18,\ldots,65\},\\
+E\mid A&amp;\sim\operatorname{Bernoulli}
+  \left(\operatorname{logit}^{-1}[-0.2+0.035(A-35)]\right),\\
+Y&amp;=E\cdot\operatorname{round}
+  \left(\exp[3.2+0.025(A-35)+0.35Z],\,2\right),
+  \qquad Z\sim N(0,1).
+\end{aligned}
+</span></p>
+<p>The models see numeric training examples and the column names, <strong>not this formula or the held-out rows</strong>. Seed <code>20260927</code> generates the training, held-out and independent-reference samples in that order. Here are the first eight training observations:</p>
+<div id="4ea706e1" class="cell" data-execution_count="2">
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">age</th>
+<th data-quarto-table-cell-role="th">employed</th>
+<th data-quarto-table-cell-role="th">income</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>44.0</td>
+<td>1.0</td>
+<td>24.84</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>22.0</td>
+<td>0.0</td>
+<td>0.00</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>37.0</td>
+<td>0.0</td>
+<td>0.00</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>37.0</td>
+<td>0.0</td>
+<td>0.00</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>29.0</td>
+<td>0.0</td>
+<td>0.00</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">5</th>
+<td>20.0</td>
+<td>1.0</td>
+<td>23.66</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">6</th>
+<td>63.0</td>
+<td>1.0</td>
+<td>44.31</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">7</th>
+<td>61.0</td>
+<td>1.0</td>
+<td>47.27</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<p>The independent target draw is a finite-sample reference, not a fitted method or a lower bound on the discrepancy. Empirical resampling draws 256 rows with replacement from the same training set, using seed <code>725</code>.</p>
 </section>
-<section id="setup-and-example" class="level2">
-<h2 class="anchored" data-anchor-id="setup-and-example">Setup and example</h2>
-<p><strong>The examples on this page are not executed by the documentation build.</strong> They require an explicitly selected model, substantial model files and additional dependencies; the ordinary site build does not download weights or start adapter training. The core package imports these wrappers without eagerly importing Transformers or bitsandbytes.</p>
-<p>Install the optional libraries into the environment in which the chosen model runs:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-m</span> pip install transformers safetensors accelerate peft bitsandbytes</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Availability of four-bit loading depends on the installed library versions and hardware. Use a supported CUDA environment for QLoRA; do not infer MPS or CPU compatibility from a generic <code>device</code> parameter.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> trex <span class="im">import</span> SafetensorsLLMInContextGenerator</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># A local model/tokenizer directory selected and downloaded separately.</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>model_directory <span class="op">=</span> <span class="st">"/path/to/your/model"</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>training_rows <span class="op">=</span> np.array([[<span class="dv">24</span>, <span class="dv">1</span>, <span class="fl">12.5</span>], [<span class="dv">40</span>, <span class="dv">0</span>, <span class="fl">21.0</span>], [<span class="dv">33</span>, <span class="dv">1</span>, <span class="fl">17.2</span>]])</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>generator <span class="op">=</span> SafetensorsLLMInContextGenerator(</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    model_path<span class="op">=</span>model_directory, examples<span class="op">=</span><span class="dv">3</span>, rows_per_prompt<span class="op">=</span><span class="dv">4</span>,</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    max_new_tokens<span class="op">=</span><span class="dv">256</span>, max_attempts<span class="op">=</span><span class="dv">10</span>, temperature<span class="op">=</span><span class="fl">0.7</span>, device<span class="op">=</span><span class="st">"cuda"</span>,</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>).fit(training_rows, column_names<span class="op">=</span>[<span class="st">"age"</span>, <span class="st">"employed"</span>, <span class="st">"income"</span>])</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>synthetic_rows <span class="op">=</span> generator.sample(<span class="dv">12</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Those three rows illustrate the interface only; they are far too small a sample on which to learn or assess a joint distribution. Use real training, validation and held-out partitions in an application.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> trex <span class="im">import</span> SafetensorsQLORAGenerator</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>adapted <span class="op">=</span> SafetensorsQLORAGenerator(</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    model_path<span class="op">=</span>model_directory, examples<span class="op">=</span><span class="dv">3</span>, load_in_4bit<span class="op">=</span><span class="va">True</span>, device<span class="op">=</span><span class="st">"cuda"</span>,</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>).fit(training_rows, column_names<span class="op">=</span>[<span class="st">"age"</span>, <span class="st">"employed"</span>, <span class="st">"income"</span>])</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>adapted.fit_adapter(</span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    output_dir<span class="op">=</span><span class="st">"adapters/row-generator"</span>, num_train_epochs<span class="op">=</span><span class="dv">1</span>,</span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    rows_per_completion<span class="op">=</span><span class="dv">2</span>, lora_r<span class="op">=</span><span class="dv">16</span>, lora_alpha<span class="op">=</span><span class="dv">32</span>,</span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>synthetic_rows <span class="op">=</span> adapted.sample(<span class="dv">12</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="frozen-in-context-generation" class="level2">
+<h2 class="anchored" data-anchor-id="frozen-in-context-generation">Frozen in-context generation</h2>
+<p><code>fit</code> stores rows; it does not update the base model’s parameters. Each prompt shows eight randomly selected training rows and requests eight new CSV rows. Trex uses its plain-text row prompt, not the model’s chat template.</p>
+<p>The following is the configuration executed on the GPU. The downloadable runner also records every prompt, completion, parsing attempt and timing.</p>
+<div id="d3e1f0b7" class="cell" data-execution_count="3">
+<details class="code-fold">
+<summary>Show Python</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> huggingface_hub <span class="im">import</span> snapshot_download</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> trex <span class="im">import</span> SafetensorsLLMInContextGenerator, SafetensorsQLORAGenerator</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>model_directory <span class="op">=</span> snapshot_download(</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Qwen/Qwen2.5-0.5B-Instruct"</span>,</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    revision<span class="op">=</span><span class="st">"7ae557604adf67be50417f59c2c2f167def9a775"</span>,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    allow_patterns<span class="op">=</span>[<span class="st">"*.json"</span>, <span class="st">"*.safetensors"</span>, <span class="st">"merges.txt"</span>, <span class="st">"vocab.json"</span>],</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>training_rows <span class="op">=</span> np.loadtxt(<span class="st">"train.csv"</span>, delimiter<span class="op">=</span><span class="st">","</span>, skiprows<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>settings <span class="op">=</span> <span class="bu">dict</span>(</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    model_path<span class="op">=</span>model_directory, examples<span class="op">=</span><span class="dv">8</span>, rows_per_prompt<span class="op">=</span><span class="dv">8</span>,</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    max_new_tokens<span class="op">=</span><span class="dv">384</span>, max_attempts<span class="op">=</span><span class="dv">128</span>, temperature<span class="op">=</span><span class="fl">0.7</span>,</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    load_in_4bit<span class="op">=</span><span class="va">True</span>, device<span class="op">=</span><span class="st">"cuda"</span>,</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>frozen <span class="op">=</span> SafetensorsLLMInContextGenerator(<span class="op">**</span>settings).fit(</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    training_rows, column_names<span class="op">=</span>[<span class="st">"age"</span>, <span class="st">"employed"</span>, <span class="st">"income"</span>],</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">724</span>)</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>torch.manual_seed(<span class="dv">724</span>)</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>frozen_rows <span class="op">=</span> frozen.sample(<span class="dv">256</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p><code>sample</code> parses numeric lines with the required number of columns, retries when insufficient rows have been collected, and returns the first requested number. It does not enforce binary columns, enforce the data-generating process’s support, or remove copied rows.</p>
 </section>
-<section id="text-likelihood-is-not-a-tabular-likelihood" class="level2">
-<h2 class="anchored" data-anchor-id="text-likelihood-is-not-a-tabular-likelihood">Text likelihood is not a tabular likelihood</h2>
-<p>Tokenization, column order, numeric formatting and prompting all change the task seen by the language model. A probability for a sequence of tokens is not automatically a density for a continuous row. Parsing and rejection further change the distribution of returned samples. Record the model revision, tokenizer, prompt settings, sampling parameters, adapter and rejection behavior when comparing experiments.</p>
-<p>Enforce schema and support restrictions after generation, and distinguish invalid output from a valid but unusual observation. A successfully parsed row need not satisfy accounting identities or structural restrictions. Check duplication and proximity to training examples; generative modeling does not establish privacy or absence of memorization.</p>
+<section id="training-and-reloading-a-qlora-adapter" class="level2">
+<h2 class="anchored" data-anchor-id="training-and-reloading-a-qlora-adapter">Training and reloading a QLoRA adapter</h2>
+<p>For a frozen matrix <span class="math inline">W</span>, LoRA trains the low-rank update <span class="math inline">BA</span> in <span class="math inline">W+BA</span>. Here the base uses <strong>four-bit NF4 with double quantization and BF16 compute</strong>, and the adapter has rank 16, scaling parameter 32 and dropout 0.05. Generation reloads the same quantization configuration as training.</p>
+<div id="5b5402d5" class="cell" data-execution_count="4">
+<details class="code-fold">
+<summary>Show Python</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>adapted <span class="op">=</span> SafetensorsQLORAGenerator(<span class="op">**</span>settings).fit(</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    training_rows, column_names<span class="op">=</span>[<span class="st">"age"</span>, <span class="st">"employed"</span>, <span class="st">"income"</span>],</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>adapted.fit_adapter(</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    output_dir<span class="op">=</span><span class="st">"adapters/row-generator"</span>,</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    num_train_epochs<span class="op">=</span><span class="dv">1</span>, train_samples<span class="op">=</span><span class="dv">512</span>, rows_per_completion<span class="op">=</span><span class="dv">4</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    per_device_train_batch_size<span class="op">=</span><span class="dv">1</span>, gradient_accumulation_steps<span class="op">=</span><span class="dv">8</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    max_length<span class="op">=</span><span class="dv">384</span>, learning_rate<span class="op">=</span><span class="fl">2e-4</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    lora_r<span class="op">=</span><span class="dv">16</span>, lora_alpha<span class="op">=</span><span class="dv">32</span>, lora_dropout<span class="op">=</span><span class="fl">0.05</span>, seed<span class="op">=</span><span class="dv">123</span>,</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">724</span>)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>torch.manual_seed(<span class="dv">724</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>adapted_rows <span class="op">=</span> adapted.sample(<span class="dv">256</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p>The 512 training examples are prompt/completion pairs constructed solely from the 800 training rows, not 512 additional observations. Each completion contains four rows. Prompt and padding tokens have loss labels masked out; only completion tokens train the adapter. All examples retained supervised tokens after truncation: <strong>31–47 tokens per example</strong>.</p>
+<p>The completed run performed <strong>64 optimizer steps</strong>, trained <strong>8,798,208 adapter parameters</strong>, saved the adapter, and reloaded it for generation.</p>
+<div id="be1dbacb" class="cell" data-execution_count="5">
+<div class="cell-output cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="llm-generators_files/figure-html/cell-6-output-1.svg" class="img-fluid figure-img"></p>
+<figcaption>Training loss averaged over each logged window. This is completion-token loss, not held-out tabular fit.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>The training loss decreases from 1.023 in the first logged window to 0.930 in the last. It is not monotone, and a lower token loss does not guarantee a better joint distribution of numeric observations.</p>
 </section>
-<section id="when-is-this-useful" class="level2">
-<h2 class="anchored" data-anchor-id="when-is-this-useful">When is this useful?</h2>
-<p>These wrappers make it possible to explore whether pretrained language-model representations help with a narrowly specified numeric simulation task. They are not the default recommendation for ordinary low-dimensional tabular data. Compare against empirical resampling, parametric baselines, mixtures, and <a href="../guides/generative-models.html">tabular GAN/diffusion models</a>, accounting for model loading and adaptation cost.</p>
-<p>HTTP serving, prompt experiments and llama.cpp endpoint orchestration are outside this package API. These classes use the Transformers/safetensors route directly.</p>
-<p><strong>API:</strong> <a href="../reference/SafetensorsLLMInContextGenerator.html">SafetensorsLLMInContextGenerator</a>, <a href="../reference/SafetensorsQLORAGenerator.html">SafetensorsQLORAGenerator</a>.</p>
+<section id="actual-generated-rows" class="level2">
+<h2 class="anchored" data-anchor-id="actual-generated-rows">Actual generated rows</h2>
+<p>These are the <strong>first six returned rows</strong>, without selection, clipping, rounding or deduplication after generation.</p>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true" href="">Frozen Qwen</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false" href="">Qwen + QLoRA</a></li></ul>
+<div class="tab-content">
+<div id="tabset-1-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-1-1-tab">
+<div id="a4af5d22" class="cell" data-execution_count="6">
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">age</th>
+<th data-quarto-table-cell-role="th">employed</th>
+<th data-quarto-table-cell-role="th">income</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>51.0</td>
+<td>1.0</td>
+<td>38.64</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>52.0</td>
+<td>1.0</td>
+<td>42.14</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>53.0</td>
+<td>1.0</td>
+<td>32.18</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>51.0</td>
+<td>1.0</td>
+<td>38.64</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>52.0</td>
+<td>1.0</td>
+<td>42.14</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">5</th>
+<td>52.0</td>
+<td>1.0</td>
+<td>42.14</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-1-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-2-tab">
+<div id="1ed519a5" class="cell" data-execution_count="7">
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">age</th>
+<th data-quarto-table-cell-role="th">employed</th>
+<th data-quarto-table-cell-role="th">income</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>37.0</td>
+<td>1.0</td>
+<td>36.64</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>28.0</td>
+<td>1.0</td>
+<td>20.65</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>58.0</td>
+<td>1.0</td>
+<td>63.99</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>36.0</td>
+<td>1.0</td>
+<td>32.43</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>23.0</td>
+<td>0.0</td>
+<td>0.00</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">5</th>
+<td>36.0</td>
+<td>1.0</td>
+<td>20.23</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="b97bd9e3" class="cell" data-execution_count="8">
+<div class="cell-output cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="llm-generators_files/figure-html/cell-9-output-1.svg" class="img-fluid figure-img"></p>
+<figcaption>Held-out data and all 256 returned rows from each language-model generator. Green denotes employment equal to one; red denotes other values. Shared axes expose support and distribution differences.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="distributional-fidelity" class="level2">
+<h2 class="anchored" data-anchor-id="distributional-fidelity">Distributional fidelity</h2>
+<p>Distances are computed against the 512 held-out rows after standardizing each column by its <strong>training-set</strong> mean and standard deviation. Sliced Wasserstein uses 128 projections with seed 91. Smaller distances and correlation errors are better. All returned rows are finite; <strong>the seven support-invalid frozen-model rows remain in the primary metrics</strong>.</p>
+<div id="9281441c" class="cell" data-execution_count="9">
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Sliced W1</th>
+<th data-quarto-table-cell-role="th">Marginal W1</th>
+<th data-quarto-table-cell-role="th">Correlation error</th>
+<th data-quarto-table-cell-role="th">Invalid support (%)</th>
+<th data-quarto-table-cell-role="th">Employed-row copies (%)</th>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">Generator</th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">Independent target draw</th>
+<td>0.078</td>
+<td>0.075</td>
+<td>0.051</td>
+<td>0.000</td>
+<td>0.000</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">Empirical resampling</th>
+<td>0.158</td>
+<td>0.161</td>
+<td>0.105</td>
+<td>0.000</td>
+<td>100.000</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">Frozen Qwen (ICL)</th>
+<td>0.198</td>
+<td>0.160</td>
+<td>0.549</td>
+<td>2.734</td>
+<td>74.576</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">Qwen + QLoRA</th>
+<td>0.270</td>
+<td>0.285</td>
+<td>0.206</td>
+<td>0.000</td>
+<td>0.629</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<p>The frozen model’s sliced-Wasserstein distance is <strong>0.198</strong>, versus <strong>0.270</strong> after QLoRA and <strong>0.158</strong> for resampling. Adaptation improves correlation structure, but worsens the marginal distributions: employment shifts to <strong>62.1%</strong>, compared with <strong>47.7%</strong> in the held-out sample, and mean income rises to <strong>23.04</strong> rather than <strong>16.96</strong> thousand.</p>
+<div id="b181167e" class="cell" data-execution_count="10">
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Mean age</th>
+<th data-quarto-table-cell-role="th">Employed (%)</th>
+<th data-quarto-table-cell-role="th">Mean income (thousands)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">Held-out target</th>
+<td>40.35</td>
+<td>47.66</td>
+<td>16.96</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">Independent target draw</th>
+<td>41.55</td>
+<td>51.95</td>
+<td>17.73</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">Empirical resampling</th>
+<td>42.89</td>
+<td>53.91</td>
+<td>21.05</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">Frozen Qwen (ICL)</th>
+<td>42.72</td>
+<td>46.09</td>
+<td>21.21</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">Qwen + QLoRA</th>
+<td>43.92</td>
+<td>62.11</td>
+<td>23.04</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div id="35f1135c" class="cell" data-execution_count="11">
+<div class="cell-output cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="llm-generators_files/figure-html/cell-12-output-1.svg" class="img-fluid figure-img"></p>
+<figcaption>Empirical distribution functions. Adaptation generates too few zero-income rows and shifts the age distribution upward.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>Copying also matters. Among generated rows with employment equal to one, <strong>74.6%</strong> of frozen-model rows exactly match a training row, versus <strong>0.63%</strong> after adaptation. This is a diagnostic, not a privacy guarantee. Zero-income rows naturally repeat because age takes only 48 integer values; counting every such match as memorization would be misleading. Resampling intentionally copies its entire output.</p>
+<p>The summaries report the percentage of rows whose employment field is exactly one, rather than treating an invalid numeric indicator as a probability. This is one fixed-budget run, with no tuning on the held-out sample; it establishes the behavior of this example, not a general ranking of models.</p>
+</section>
+<section id="parsing-reliability-and-cost" class="level2">
+<h2 class="anchored" data-anchor-id="parsing-reliability-and-cost">Parsing reliability and cost</h2>
+<p>Frozen Qwen frequently writes prose or Python code instead of the requested CSV. <strong>44 of its 62 attempts return no parseable rows</strong>. Adaptation eliminates empty attempts in this run, although neither model reliably returns exactly the requested row count. Valid CSV is distinct from a valid economic row.</p>
+<div id="9aba8ce8" class="cell" data-execution_count="12">
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Returned rows</th>
+<th data-quarto-table-cell-role="th">Generation attempts</th>
+<th data-quarto-table-cell-role="th">Zero-row attempts</th>
+<th data-quarto-table-cell-role="th">Parsed before truncation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">Frozen Qwen</th>
+<td>256</td>
+<td>62</td>
+<td>44</td>
+<td>262</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">Qwen + QLoRA</th>
+<td>256</td>
+<td>38</td>
+<td>0</td>
+<td>256</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Wall seconds</th>
+<th data-quarto-table-cell-role="th">Model-load seconds (included)</th>
+<th data-quarto-table-cell-role="th">Peak Torch allocation (GiB)</th>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">Operation</th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">Train and save adapter</th>
+<td>91.67</td>
+<td>NaN</td>
+<td>1.20</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">Frozen: generate 256 rows</th>
+<td>374.11</td>
+<td>1.37</td>
+<td>0.45</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">QLoRA: generate 256 rows</th>
+<td>78.72</td>
+<td>0.66</td>
+<td>0.76</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<p>Sampling takes <strong>374 seconds frozen</strong> and <strong>79 seconds adapted</strong>; the latter also required <strong>92 seconds of training</strong>. Timings include model loading, all unsuccessful generation attempts and parsing. Training includes loading, dataset preparation and saving. Initial model download is excluded. Memory is PyTorch’s peak allocated memory, not total GPU or system usage. These wrappers issue serial generation calls; this is not an optimized batched serving benchmark.</p>
+</section>
+<section id="reproduce-the-run" class="level2">
+<h2 class="anchored" data-anchor-id="reproduce-the-run">Reproduce the run</h2>
+<ul>
+<li><a href="data/llm-generators/2026-09-27/replication.zip">Replication ZIP</a>: all input and output CSVs, exact prompts/completions, training log, environment, scoring code and the source snapshot used for execution.</li>
+<li><a href="data/llm-generators/2026-09-27/executed.json.gz">Saved execution record</a> and <a href="data/llm-generators/2026-09-27/SHA256SUMS">SHA-256 checksums</a>.</li>
+<li><a href="https://github.com/apoorvalal/trex/blob/main/benchmarks/llm_generators/run.py">GPU runner</a> and <a href="https://github.com/apoorvalal/trex/blob/main/benchmarks/llm_generators/analyze.py">saved-data analysis</a>.</li>
+</ul>
+<p>Install Trex from this repository in a CUDA-enabled environment. The optional runtime dependencies are <code>transformers</code>, <code>safetensors</code>, <code>accelerate</code>, <code>peft</code> and <code>bitsandbytes</code>. The exact versions used here are:</p>
+<div id="e2acc57b" class="cell" data-execution_count="13">
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Executed version</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">Python</th>
+<td>3.12.12</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">torch</th>
+<td>2.9.1</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">transformers</th>
+<td>5.6.0.dev0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">peft</th>
+<td>0.18.1</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">accelerate</th>
+<td>1.12.0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">bitsandbytes</th>
+<td>0.48.2</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">numpy</th>
+<td>2.4.2</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">safetensors</th>
+<td>0.7.0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">datasets</th>
+<td>4.4.2</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<p>From the repository root:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> benchmarks/llm_generators/run.py <span class="at">--out</span> tmp/llm-guide/executed</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The script regenerates the data, downloads the pinned public checkpoint, trains and saves an adapter, reloads it, and records both generators’ outputs. The <code>seed=123</code> argument controls construction of adapter-training examples; the current Trainer uses its default training seed 42. Sampling seeds are reset to 724. Use the complete runner to preserve the order of RNG-consuming operations. Library or kernel changes can still change sampled text.</p>
+<p>The saved-data build verifies file hashes, reparses <strong>all</strong> raw completions, checks that prompting used only training rows, and reproduces the metrics. Neither it nor CI requires model weights or a GPU. Base-model and adapter weights are not included in the small replication download; the record includes the trained adapter’s hash.</p>
+<p>For this low-dimensional task, <strong>resampling remains the more effective baseline</strong>. These APIs are useful for testing language-model generation, but a token likelihood is not a continuous tabular density, and a successfully trained adapter is not evidence of improved synthetic data.</p>
+<p><strong>Related:</strong> <a href="../guides/generative-models.html">tabular GAN and diffusion models</a>. <strong>API:</strong> <a href="../reference/SafetensorsLLMInContextGenerator.html">SafetensorsLLMInContextGenerator</a>, <a href="../reference/SafetensorsQLORAGenerator.html">SafetensorsQLORAGenerator</a>.</p>
 
 
 </section>

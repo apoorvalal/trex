@@ -556,7 +556,7 @@ window.Quarto = {
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../guides/llm-generators.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text">Optional local language-model generators</span></a>
+ <span class="menu-text">Language-model row generators</span></a>
   </div>
 </li>
       </ul>
@@ -653,7 +653,7 @@ V_\theta(s)=\log\sum_a\exp\left[u_\theta(s,a)+
 <section id="worked-example-replace-a-deteriorating-machine" class="level2">
 <h2 class="anchored" data-anchor-id="worked-example-replace-a-deteriorating-machine">Worked example: replace a deteriorating machine</h2>
 <p>Keeping the machine costs <span class="math inline">\theta_m s</span>; replacement costs <span class="math inline">\theta_r</span>. Replacement mostly resets the state. We generate decisions from an independent NumPy Bellman calculation, hold the transition law fixed, and estimate both cost parameters. This is a small correctness illustration, not Rust’s original bus data or an empirical demand estimate.</p>
-<div id="87f42d7e" class="cell" data-execution_count="1">
+<div id="671dd830" class="cell" data-execution_count="1">
 <details class="code-fold">
 <summary>Show Python</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
