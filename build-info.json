@@ -1,0 +1,37 @@
+{
+  "source_repository": "https://github.com/apoorvalal/trex",
+  "source_commit": "c7ccbbbdab0e4d8526445b06227cc789c9ccad05",
+  "tracked_source_dirty": false,
+  "built_at_utc": "2026-09-27T15:05:09.845284+00:00",
+  "python": "3.12.14",
+  "quarto": "1.8.27",
+  "dependencies": {
+    "torch": "2.14.0+cpu",
+    "numpy": "2.5.3",
+    "scipy": "1.18.1",
+    "pandas": "3.0.6",
+    "quartodoc": "0.11.1",
+    "griffe": "1.15.0",
+    "matplotlib": "3.11.2"
+  },
+  "api_entries": 71,
+  "katex": "0.16.22 (locally bundled, SHA-256 verified)",
+  "executable_guides": [
+    "conditional-moments",
+    "dynamic-choice",
+    "gel",
+    "generative-models",
+    "gmm",
+    "grouped-effects",
+    "latent-factors",
+    "likelihood-glms",
+    "linear-regression",
+    "matrix-completion",
+    "score-matching",
+    "static-choice",
+    "synthetic-did"
+  ],
+  "nonexecuted_guides": [
+    "llm-generators"
+  ]
+}
