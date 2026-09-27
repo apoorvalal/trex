@@ -115,17 +115,19 @@ def generate_api(env):
             first, rest = text.split("\n", 1)
             heading = re.search(r"\{\s*#([^\s}]+)", first)
             first = f"[]{{#{heading[1]}}}" if heading else first
-            page.write_text(f"---\ntitle: {json.dumps(name)}\nexecute:\n  eval: false\n---\n\n" + first +
+            page.write_text(f"---\ntitle: {json.dumps(name)}\nrepo-actions: false\nexecute:\n  eval: false\n---\n\n" + first +
                             f"\n\n[Guide & worked example](../guides/{target}.qmd){source_link}\n" + rest)
     index = reference / "index.qmd"
     content = index.read_text()
     first, rest = content.split("\n", 1)
-    index.write_text("---\ntitle: API reference\nexecute:\n  eval: false\n---\n" +
+    index.write_text("---\ntitle: API reference\nrepo-actions: false\nexecute:\n  eval: false\n---\n" +
         "\n\nSignatures and public methods are generated from this checkout. "
         "Start with the [method selection guide](../start/choosing.qmd) for "
         "assumptions, data shapes and inference limits. Inherited methods "
         "may be unimplemented for a particular estimator; a signature alone "
-        "is not a claim of support.\n" + rest)
+        "is not a claim of support. Edit Python docstrings or the "
+        "[API inventory](https://github.com/apoorvalal/trex/blob/main/docs/_quarto.yml), "
+        "not these generated pages.\n" + rest)
     print(f"API: {len(names)} entries; all declared public exports covered.", flush=True)
     return names
 
