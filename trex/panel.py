@@ -16,16 +16,12 @@ from typing import Optional
 import torch
 
 from .base import BaseEstimator
+from ._utils import _to_tensor
 
 
-def _to_tensor(value, device: torch.device, dtype: Optional[torch.dtype] = None) -> torch.Tensor:
-    if isinstance(value, torch.Tensor):
-        out = value.to(device)
-        return out.to(dtype=dtype) if dtype is not None else out
-    return torch.as_tensor(value, device=device, dtype=dtype)
-
-
-def _svt(matrix: torch.Tensor, threshold: float | torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+def _svt(
+    matrix: torch.Tensor, threshold: float | torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Singular-value thresholding operator."""
     U, S, Vh = torch.linalg.svd(matrix, full_matrices=False)
     S_shrunk = torch.clamp(S - threshold, min=0.0)
@@ -35,7 +31,9 @@ def _svt(matrix: torch.Tensor, threshold: float | torch.Tensor) -> tuple[torch.T
     return (U[:, keep] * S_shrunk[keep]) @ Vh[keep, :], S_shrunk
 
 
-def _center_effects(row_effects: torch.Tensor, col_effects: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+def _center_effects(
+    row_effects: torch.Tensor, col_effects: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Normalize additive effects without changing their sum."""
     row_mean = row_effects.mean()
     row_effects = row_effects - row_mean
@@ -77,7 +75,8 @@ def matrix_completion_lambda_max(
                 torch.where(mask, resid, torch.zeros_like(resid)).sum(dim=0) / denom,
                 col_effects,
             )
-        row_effects, col_effects = _center_effects(row_effects, col_effects)
+        if fit_unit_effects and fit_time_effects:
+            row_effects, col_effects = _center_effects(row_effects, col_effects)
 
     residual = Y - row_effects[:, None] - col_effects[None, :]
     work = torch.where(mask, residual, torch.zeros_like(Y))
@@ -129,6 +128,8 @@ class NuclearNormMatrixCompletion(BaseEstimator):
         self.maxiter = int(maxiter)
         self.effect_iters = int(effect_iters)
         self.tol = float(tol)
+        if self.maxiter < 1 or self.effect_iters < 1 or self.tol <= 0:
+            raise ValueError("Iteration counts and tolerance must be positive")
         self.history: dict[str, list[float]] = {"objective": [], "rmse": []}
 
     def _update_effects(
@@ -143,14 +144,19 @@ class NuclearNormMatrixCompletion(BaseEstimator):
             if self.fit_unit_effects:
                 resid = Y - L - col_effects[None, :]
                 denom = mask.sum(dim=1).clamp_min(1).to(Y.dtype)
-                updated = torch.where(mask, resid, torch.zeros_like(resid)).sum(dim=1) / denom
+                updated = (
+                    torch.where(mask, resid, torch.zeros_like(resid)).sum(dim=1) / denom
+                )
                 row_effects = torch.where(mask.any(dim=1), updated, row_effects)
             if self.fit_time_effects:
                 resid = Y - L - row_effects[:, None]
                 denom = mask.sum(dim=0).clamp_min(1).to(Y.dtype)
-                updated = torch.where(mask, resid, torch.zeros_like(resid)).sum(dim=0) / denom
+                updated = (
+                    torch.where(mask, resid, torch.zeros_like(resid)).sum(dim=0) / denom
+                )
                 col_effects = torch.where(mask.any(dim=0), updated, col_effects)
-            row_effects, col_effects = _center_effects(row_effects, col_effects)
+            if self.fit_unit_effects and self.fit_time_effects:
+                row_effects, col_effects = _center_effects(row_effects, col_effects)
         return row_effects, col_effects
 
     def _objective(
@@ -168,8 +174,12 @@ class NuclearNormMatrixCompletion(BaseEstimator):
         n_obs = mask.sum().to(Y.dtype).clamp_min(1)
         return residual.pow(2).sum() / n_obs + lambda_L * singular_values.sum()
 
-    def fit(self, Y: torch.Tensor, mask: Optional[torch.Tensor] = None) -> "NuclearNormMatrixCompletion":
+    def fit(
+        self, Y: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> "NuclearNormMatrixCompletion":
         Y = _to_tensor(Y, self.device)
+        if not Y.is_floating_point():
+            Y = Y.to(torch.float64)
         if Y.ndim != 2:
             raise ValueError("Y must be a 2D panel matrix.")
         if mask is None:
@@ -180,6 +190,8 @@ class NuclearNormMatrixCompletion(BaseEstimator):
                 raise ValueError("mask must have the same shape as Y.")
         if not torch.any(mask_t):
             raise ValueError("mask contains no observed entries.")
+        if not torch.isfinite(Y[mask_t]).all():
+            raise ValueError("Observed panel entries must be finite")
         Y_work = torch.where(mask_t, Y, torch.zeros_like(Y))
 
         if self.lambda_L is None:
@@ -205,12 +217,25 @@ class NuclearNormMatrixCompletion(BaseEstimator):
         self.history = {"objective": [], "rmse": []}
 
         for iteration in range(self.maxiter):
-            row_effects, col_effects = self._update_effects(Y_work, mask_t, L, row_effects, col_effects)
+            row_effects, col_effects = self._update_effects(
+                Y_work, mask_t, L, row_effects, col_effects
+            )
             fitted = L + row_effects[:, None] + col_effects[None, :]
-            projected = L + torch.where(mask_t, Y_work - fitted, torch.zeros_like(Y_work))
+            projected = L + torch.where(
+                mask_t, Y_work - fitted, torch.zeros_like(Y_work)
+            )
             L, singular_values = _svt(projected, threshold)
-            obj = self._objective(Y_work, mask_t, L, row_effects, col_effects, singular_values, lambda_L)
-            rmse = torch.sqrt(torch.where(mask_t, (L + row_effects[:, None] + col_effects[None, :] - Y_work) ** 2, torch.zeros_like(Y_work)).sum() / n_obs)
+            obj = self._objective(
+                Y_work, mask_t, L, row_effects, col_effects, singular_values, lambda_L
+            )
+            rmse = torch.sqrt(
+                torch.where(
+                    mask_t,
+                    (L + row_effects[:, None] + col_effects[None, :] - Y_work) ** 2,
+                    torch.zeros_like(Y_work),
+                ).sum()
+                / n_obs
+            )
             obj_item = float(obj.item())
             self.history["objective"].append(obj_item)
             self.history["rmse"].append(float(rmse.item()))
@@ -249,10 +274,13 @@ def collapsed_form(Y: torch.Tensor, N0: int, T0: int) -> torch.Tensor:
     """Collapse treated units and post-treatment periods as in synthdid."""
     N, T = Y.shape
     top = torch.cat([Y[:N0, :T0], Y[:N0, T0:T].mean(dim=1, keepdim=True)], dim=1)
-    bottom = torch.cat([
-        Y[N0:N, :T0].mean(dim=0, keepdim=True),
-        Y[N0:N, T0:T].mean().reshape(1, 1),
-    ], dim=1)
+    bottom = torch.cat(
+        [
+            Y[N0:N, :T0].mean(dim=0, keepdim=True),
+            Y[N0:N, T0:T].mean().reshape(1, 1),
+        ],
+        dim=1,
+    )
     return torch.cat([top, bottom], dim=0)
 
 
@@ -260,7 +288,9 @@ def _demean_columns(Y: torch.Tensor) -> torch.Tensor:
     return Y - Y.mean(dim=0, keepdim=True)
 
 
-def frank_wolfe_step(A: torch.Tensor, x: torch.Tensor, b: torch.Tensor, eta: float | torch.Tensor) -> torch.Tensor:
+def frank_wolfe_step(
+    A: torch.Tensor, x: torch.Tensor, b: torch.Tensor, eta: float | torch.Tensor
+) -> torch.Tensor:
     """One exact-line-search Frank-Wolfe step over the probability simplex."""
     Ax = A @ x
     half_grad = (Ax - b) @ A + eta * x
@@ -308,7 +338,11 @@ def simplex_least_squares_fw(
     for _ in range(maxiter):
         x = frank_wolfe_step(A, x, b, eta)
         residual = A @ x - b
-        val = float((residual.pow(2).sum() / A.shape[0] + float(zeta) ** 2 * x.pow(2).sum()).item())
+        val = float(
+            (
+                residual.pow(2).sum() / A.shape[0] + float(zeta) ** 2 * x.pow(2).sum()
+            ).item()
+        )
         vals.append(val)
         if prev is not None and prev - val <= min_decrease**2:
             break
@@ -378,28 +412,60 @@ class SyntheticDID(BaseEstimator):
             raise ValueError("Y must be a 2D panel matrix.")
         N, T = Y.shape
         if not (0 < N0 < N and 0 < T0 < T):
-            raise ValueError("N0 and T0 must define nonempty control/treated and pre/post blocks.")
+            raise ValueError(
+                "N0 and T0 must define nonempty control/treated and pre/post blocks."
+            )
         sigma = _noise_level(Y, N0, T0)
-        eta_omega = self.eta_omega if self.eta_omega is not None else ((N - N0) * (T - T0)) ** 0.25
-        zeta_omega = float(self.zeta_omega) if self.zeta_omega is not None else float(eta_omega * sigma)
-        zeta_lambda = float(self.zeta_lambda) if self.zeta_lambda is not None else float(self.eta_lambda * sigma)
+        eta_omega = (
+            self.eta_omega
+            if self.eta_omega is not None
+            else ((N - N0) * (T - T0)) ** 0.25
+        )
+        zeta_omega = (
+            float(self.zeta_omega)
+            if self.zeta_omega is not None
+            else float(eta_omega * sigma)
+        )
+        zeta_lambda = (
+            float(self.zeta_lambda)
+            if self.zeta_lambda is not None
+            else float(self.eta_lambda * sigma)
+        )
 
         Yc = collapsed_form(Y, N0, T0)
-        lambda_init = None if self.lambda_weights is None else _to_tensor(self.lambda_weights, self.device, dtype=Y.dtype)
-        omega_init = None if self.omega is None else _to_tensor(self.omega, self.device, dtype=Y.dtype)
-        update_lambda = self.update_lambda if self.update_lambda is not None else lambda_init is None
-        update_omega = self.update_omega if self.update_omega is not None else omega_init is None
+        lambda_init = (
+            None
+            if self.lambda_weights is None
+            else _to_tensor(self.lambda_weights, self.device, dtype=Y.dtype)
+        )
+        omega_init = (
+            None
+            if self.omega is None
+            else _to_tensor(self.omega, self.device, dtype=Y.dtype)
+        )
+        update_lambda = (
+            self.update_lambda
+            if self.update_lambda is not None
+            else lambda_init is None
+        )
+        update_omega = (
+            self.update_omega if self.update_omega is not None else omega_init is None
+        )
 
         if lambda_init is not None:
             if lambda_init.shape != (T0,):
                 raise ValueError("lambda_weights must have shape (T0,).")
             lambda_init = torch.clamp(lambda_init, min=0)
-            lambda_init = lambda_init / lambda_init.sum().clamp_min(torch.finfo(Y.dtype).eps)
+            lambda_init = lambda_init / lambda_init.sum().clamp_min(
+                torch.finfo(Y.dtype).eps
+            )
         if omega_init is not None:
             if omega_init.shape != (N0,):
                 raise ValueError("omega must have shape (N0,).")
             omega_init = torch.clamp(omega_init, min=0)
-            omega_init = omega_init / omega_init.sum().clamp_min(torch.finfo(Y.dtype).eps)
+            omega_init = omega_init / omega_init.sum().clamp_min(
+                torch.finfo(Y.dtype).eps
+            )
 
         if update_lambda:
             lambda_, lambda_vals = simplex_least_squares_fw(
@@ -423,7 +489,9 @@ class SyntheticDID(BaseEstimator):
                 )
         else:
             if lambda_init is None:
-                raise ValueError("Fixed lambda requested but lambda_weights was not provided.")
+                raise ValueError(
+                    "Fixed lambda requested but lambda_weights was not provided."
+                )
             lambda_ = lambda_init
             lambda_vals = torch.empty(0, device=Y.device, dtype=Y.dtype)
 
@@ -453,8 +521,12 @@ class SyntheticDID(BaseEstimator):
             omega = omega_init
             omega_vals = torch.empty(0, device=Y.device, dtype=Y.dtype)
 
-        post_weights = torch.full((T - T0,), 1.0 / (T - T0), device=Y.device, dtype=Y.dtype)
-        treated_weights = torch.full((N - N0,), 1.0 / (N - N0), device=Y.device, dtype=Y.dtype)
+        post_weights = torch.full(
+            (T - T0,), 1.0 / (T - T0), device=Y.device, dtype=Y.dtype
+        )
+        treated_weights = torch.full(
+            (N - N0,), 1.0 / (N - N0), device=Y.device, dtype=Y.dtype
+        )
         row_contrast = torch.cat([-omega, treated_weights])
         col_contrast = torch.cat([-lambda_, post_weights])
         estimate = row_contrast @ Y @ col_contrast
@@ -465,7 +537,11 @@ class SyntheticDID(BaseEstimator):
             omega_values=omega_vals.detach(),
             lambda_values=lambda_vals.detach(),
         )
-        self.params = {"estimate": self.result_.estimate, "omega": self.result_.omega, "lambda": self.result_.lambda_}
+        self.params = {
+            "estimate": self.result_.estimate,
+            "omega": self.result_.omega,
+            "lambda": self.result_.lambda_,
+        }
         self.N0_, self.T0_ = int(N0), int(T0)
         return self
 
@@ -475,7 +551,9 @@ class SyntheticDID(BaseEstimator):
         return self.result_.estimate
 
 
-def synthdid_estimate(Y: torch.Tensor, N0: int, T0: int, **kwargs) -> SyntheticDIDResult:
+def synthdid_estimate(
+    Y: torch.Tensor, N0: int, T0: int, **kwargs
+) -> SyntheticDIDResult:
     """Convenience function returning a fitted :class:`SyntheticDIDResult`."""
     return SyntheticDID(**kwargs).fit(Y, N0, T0).result_
 
@@ -484,22 +562,35 @@ def did_estimate(Y: torch.Tensor, N0: int, T0: int) -> torch.Tensor:
     """Classical two-way DID estimate for a block treatment design."""
     Y = torch.as_tensor(Y)
     N, T = Y.shape
-    return Y[N0:N, T0:T].mean() - Y[N0:N, :T0].mean() - Y[:N0, T0:T].mean() + Y[:N0, :T0].mean()
+    return (
+        Y[N0:N, T0:T].mean()
+        - Y[N0:N, :T0].mean()
+        - Y[:N0, T0:T].mean()
+        + Y[:N0, :T0].mean()
+    )
 
 
-def sc_estimate(Y: torch.Tensor, N0: int, T0: int, eta_omega: float = 1e-6, **kwargs) -> SyntheticDIDResult:
+def sc_estimate(
+    Y: torch.Tensor, N0: int, T0: int, eta_omega: float = 1e-6, **kwargs
+) -> SyntheticDIDResult:
     """Synthetic-control special case: no time weights and no omega intercept."""
     Yt = torch.as_tensor(Y)
-    return SyntheticDID(
-        eta_omega=eta_omega,
-        lambda_weights=torch.zeros(T0, dtype=Yt.dtype, device=Yt.device),
-        update_lambda=False,
-        omega_intercept=False,
-        **kwargs,
-    ).fit(Yt, N0, T0).result_
+    return (
+        SyntheticDID(
+            eta_omega=eta_omega,
+            lambda_weights=torch.zeros(T0, dtype=Yt.dtype, device=Yt.device),
+            update_lambda=False,
+            omega_intercept=False,
+            **kwargs,
+        )
+        .fit(Yt, N0, T0)
+        .result_
+    )
 
 
-def matrix_completion_estimate(Y: torch.Tensor, N0: int, T0: int, **kwargs) -> tuple[torch.Tensor, NuclearNormMatrixCompletion]:
+def matrix_completion_estimate(
+    Y: torch.Tensor, N0: int, T0: int, **kwargs
+) -> tuple[torch.Tensor, NuclearNormMatrixCompletion]:
     """Estimate ATT by imputing treated post cells with matrix completion."""
     Y = torch.as_tensor(Y)
     mask = torch.ones_like(Y, dtype=torch.bool)
@@ -546,17 +637,38 @@ def panel_estimates(
         elif method == "Synthetic DID (SDID)":
             out[method] = synthdid_estimate(Y, N0, T0, **sdid_kwargs).estimate
         elif method == "Time Weighted DID":
-            out[method] = synthdid_estimate(Y, N0, T0, omega=uniform_omega, update_omega=False, **sdid_kwargs).estimate
+            out[method] = synthdid_estimate(
+                Y, N0, T0, omega=uniform_omega, update_omega=False, **sdid_kwargs
+            ).estimate
         elif method == "SDID (No Intercept)":
-            out[method] = synthdid_estimate(Y, N0, T0, omega_intercept=False, **sdid_kwargs).estimate
+            out[method] = synthdid_estimate(
+                Y, N0, T0, omega_intercept=False, **sdid_kwargs
+            ).estimate
         elif method == "SC with FEs (DIFP)":
-            out[method] = synthdid_estimate(Y, N0, T0, lambda_weights=uniform_lambda, update_lambda=False, eta_omega=1e-6, **sdid_kwargs).estimate
+            out[method] = synthdid_estimate(
+                Y,
+                N0,
+                T0,
+                lambda_weights=uniform_lambda,
+                update_lambda=False,
+                eta_omega=1e-6,
+                **sdid_kwargs,
+            ).estimate
         elif method == "Matrix Completion":
             out[method] = matrix_completion_estimate(Y, N0, T0, **mc_kwargs)[0]
         elif method == "SC (Regularized)":
-            out[method] = sc_estimate(Y, N0, T0, eta_omega=reg_eta, **sdid_kwargs).estimate
+            out[method] = sc_estimate(
+                Y, N0, T0, eta_omega=reg_eta, **sdid_kwargs
+            ).estimate
         elif method == "DIFP (Regularized)":
-            out[method] = synthdid_estimate(Y, N0, T0, lambda_weights=uniform_lambda, update_lambda=False, **sdid_kwargs).estimate
+            out[method] = synthdid_estimate(
+                Y,
+                N0,
+                T0,
+                lambda_weights=uniform_lambda,
+                update_lambda=False,
+                **sdid_kwargs,
+            ).estimate
         else:
             raise ValueError(f"Unknown panel estimator method: {method}")
     return out

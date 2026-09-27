@@ -9,7 +9,6 @@ package import path.
 from __future__ import annotations
 
 import csv
-from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Optional
 
 import numpy as np
@@ -19,6 +18,8 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
 from .base import BaseEstimator
+from .preprocessing import TabularTransformer
+from .metrics import distribution_metrics, sliced_wasserstein_distance
 
 
 def _as_tensor(
@@ -42,126 +43,6 @@ def _as_2d_tensor(
     if tensor.ndim != 2:
         raise ValueError("Expected a two-dimensional tabular array.")
     return tensor
-
-
-def _column_indices(
-    columns: Optional[list[str]],
-    selected: Optional[Iterable[int | str]],
-) -> list[int]:
-    if selected is None:
-        return []
-    result: list[int] = []
-    for item in selected:
-        if isinstance(item, str):
-            if columns is None:
-                raise ValueError(
-                    "Column names are required for string column selectors."
-                )
-            result.append(columns.index(item))
-        else:
-            result.append(int(item))
-    return result
-
-
-@dataclass
-class TabularTransformer:
-    """Standardize continuous columns while preserving binary columns.
-
-    Parameters
-    ----------
-    column_names : list of str, optional
-        Names used when accepting or returning pandas data frames.
-    binary_columns : iterable of str or int, optional
-        Columns treated as Bernoulli indicators. They are left on the original
-        0/1 scale during training and rounded after generation.
-    nonnegative_columns : iterable of str or int, optional
-        Columns clipped at zero after inverse transformation.
-    eps : float, default=1e-6
-        Added to standard deviations for numerical stability.
-    """
-
-    column_names: Optional[list[str]] = None
-    binary_columns: Optional[Iterable[int | str]] = None
-    nonnegative_columns: Optional[Iterable[int | str]] = None
-    eps: float = 1e-6
-
-    def fit(self, data: Any) -> "TabularTransformer":
-        values, columns = self._values_and_columns(data)
-        if self.column_names is None:
-            self.column_names = columns
-
-        self.binary_indices = _column_indices(self.column_names, self.binary_columns)
-        self.nonnegative_indices = _column_indices(
-            self.column_names,
-            self.nonnegative_columns,
-        )
-        self.continuous_indices = [
-            j for j in range(values.shape[1]) if j not in set(self.binary_indices)
-        ]
-        self.mean_ = values.mean(axis=0)
-        self.std_ = values.std(axis=0) + self.eps
-        self.mean_[self.binary_indices] = 0.0
-        self.std_[self.binary_indices] = 1.0
-        return self
-
-    def transform(self, data: Any) -> np.ndarray:
-        self._check_is_fitted()
-        values, _ = self._values_and_columns(data)
-        return ((values - self.mean_) / self.std_).astype(np.float32)
-
-    def fit_transform(self, data: Any) -> np.ndarray:
-        return self.fit(data).transform(data)
-
-    def inverse_transform(
-        self,
-        values: Any,
-        *,
-        sample_binary: bool = False,
-        random_state: Optional[int] = None,
-    ) -> np.ndarray:
-        self._check_is_fitted()
-        array = np.asarray(values, dtype=np.float64) * self.std_ + self.mean_
-
-        if self.binary_indices:
-            probs = np.clip(array[:, self.binary_indices], 0.0, 1.0)
-            if sample_binary:
-                rng = np.random.default_rng(random_state)
-                array[:, self.binary_indices] = rng.binomial(1, probs)
-            else:
-                array[:, self.binary_indices] = (probs >= 0.5).astype(np.float64)
-
-        if self.nonnegative_indices:
-            array[:, self.nonnegative_indices] = np.maximum(
-                array[:, self.nonnegative_indices],
-                0.0,
-            )
-        return array
-
-    def transformed_bounds(self) -> tuple[np.ndarray, np.ndarray]:
-        self._check_is_fitted()
-        lower = np.full_like(self.mean_, -np.inf, dtype=np.float64)
-        upper = np.full_like(self.mean_, np.inf, dtype=np.float64)
-        if self.binary_indices:
-            lower[self.binary_indices] = 0.0
-            upper[self.binary_indices] = 1.0
-        if self.nonnegative_indices:
-            lower[self.nonnegative_indices] = np.maximum(
-                lower[self.nonnegative_indices],
-                0.0,
-            )
-        return (
-            ((lower - self.mean_) / self.std_).astype(np.float32),
-            ((upper - self.mean_) / self.std_).astype(np.float32),
-        )
-
-    def _values_and_columns(self, data: Any) -> tuple[np.ndarray, Optional[list[str]]]:
-        if hasattr(data, "columns") and hasattr(data, "to_numpy"):
-            return data.to_numpy(dtype=np.float64), list(data.columns)
-        return np.asarray(data, dtype=np.float64), self.column_names
-
-    def _check_is_fitted(self) -> None:
-        if not hasattr(self, "mean_"):
-            raise RuntimeError("TabularTransformer must be fitted before use.")
 
 
 class _MLP(nn.Module):
@@ -1504,77 +1385,3 @@ def _prepare_model_for_lora_training(model: Any) -> None:
             )
         except TypeError:
             model.gradient_checkpointing_enable()
-
-
-def distribution_metrics(
-    real: Any,
-    fake: Any,
-    *,
-    n_projections: int = 128,
-    seed: int = 0,
-) -> dict[str, float]:
-    """Compute marginal and joint distribution discrepancy metrics."""
-
-    real_array = np.asarray(real, dtype=np.float64)
-    fake_array = np.asarray(fake, dtype=np.float64)
-    if real_array.ndim != 2 or fake_array.ndim != 2:
-        raise ValueError("Distribution metrics expect two-dimensional arrays.")
-    if real_array.shape[1] != fake_array.shape[1]:
-        raise ValueError("Real and fake arrays must have the same number of columns.")
-
-    try:
-        from scipy.stats import ks_2samp, wasserstein_distance
-    except ImportError as exc:
-        raise ImportError("Install scipy to compute distribution metrics.") from exc
-
-    marginal_w1 = [
-        wasserstein_distance(real_array[:, j], fake_array[:, j])
-        for j in range(real_array.shape[1])
-    ]
-    marginal_ks = [
-        ks_2samp(real_array[:, j], fake_array[:, j]).statistic
-        for j in range(real_array.shape[1])
-    ]
-    with np.errstate(divide="ignore", invalid="ignore"):
-        corr_real = np.corrcoef(real_array, rowvar=False)
-        corr_fake = np.corrcoef(fake_array, rowvar=False)
-    corr_real = np.nan_to_num(corr_real)
-    corr_fake = np.nan_to_num(corr_fake)
-    return {
-        "marginal_w1_mean": float(np.mean(marginal_w1)),
-        "marginal_w1_max": float(np.max(marginal_w1)),
-        "marginal_ks_mean": float(np.mean(marginal_ks)),
-        "marginal_ks_max": float(np.max(marginal_ks)),
-        "mean_l2": float(
-            np.linalg.norm(real_array.mean(axis=0) - fake_array.mean(axis=0))
-        ),
-        "cov_frobenius": float(
-            np.linalg.norm(
-                np.cov(real_array, rowvar=False) - np.cov(fake_array, rowvar=False)
-            )
-        ),
-        "corr_frobenius": float(np.linalg.norm(corr_real - corr_fake)),
-        "sliced_wasserstein": sliced_wasserstein_distance(
-            real_array,
-            fake_array,
-            n_projections=n_projections,
-            seed=seed,
-        ),
-    }
-
-
-def sliced_wasserstein_distance(
-    real: np.ndarray,
-    fake: np.ndarray,
-    *,
-    n_projections: int = 128,
-    seed: int = 0,
-) -> float:
-    rng = np.random.default_rng(seed)
-    dim = real.shape[1]
-    directions = rng.normal(size=(n_projections, dim))
-    directions /= np.linalg.norm(directions, axis=1, keepdims=True)
-    real_proj = np.sort(real @ directions.T, axis=0)
-    fake_proj = np.sort(fake @ directions.T, axis=0)
-    n = min(real_proj.shape[0], fake_proj.shape[0])
-    return float(np.mean(np.abs(real_proj[:n] - fake_proj[:n])))

@@ -1,5 +1,8 @@
 # API Documentation
 
+[Correctness and refactoring audit, September 2026](audits/2026-09-23-cleanup.md)
+documents independent Python/R checks, numerical fixes and remaining limits.
+
 This project uses [`pdoc`](https://pdoc.dev) to generate API documentation from
 Python docstrings.
 

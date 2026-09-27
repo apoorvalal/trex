@@ -16,6 +16,7 @@ from typing import Any, Optional
 import torch
 
 from .base import BaseEstimator
+from ._utils import _encode_ids
 from .linear import LinearRegression
 
 try:
@@ -25,12 +26,6 @@ try:
 except ImportError:
     FlashKMeans = None
     _HAS_FLASH_KMEANS = False
-
-
-def _encode_ids(values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """Return sorted unique levels and inverse indices."""
-    unique, inverse = torch.unique(values, sorted=True, return_inverse=True)
-    return unique, inverse.to(dtype=torch.int64)
 
 
 def _build_panel_matrix(
@@ -68,7 +63,10 @@ def _build_panel_matrix(
         torch.ones(features.shape[0], device=features.device, dtype=features.dtype),
         accumulate=True,
     )
-    counts = torch.clamp(counts, min=1.0)
+    if torch.any(counts == 0):
+        raise ValueError(
+            "Panel embeddings require observed cells for every unit/time pair; handle missing cells explicitly"
+        )
     return panel / counts
 
 
@@ -107,7 +105,7 @@ def build_panel_embeddings(
 
     if standardize:
         mean = embeddings.mean(dim=0, keepdim=True)
-        std = embeddings.std(dim=0, keepdim=True)
+        std = embeddings.std(dim=0, keepdim=True, correction=0)
         embeddings = (embeddings - mean) / torch.clamp(std, min=1e-8)
 
     return embeddings, unit_levels, time_levels
@@ -120,8 +118,19 @@ def chunked_knn_indices(
     include_self: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
-    Compute exact KNN indices with chunked distance evaluation.
+    Compute exact KNN indices and squared distances in chunks.
     """
+    if (
+        embeddings.ndim != 2
+        or embeddings.shape[0] == 0
+        or not torch.isfinite(embeddings).all()
+        or block_size < 1
+    ):
+        raise ValueError(
+            "Expected nonempty finite embeddings and a positive block size"
+        )
+    if include_self and n_neighbors > len(embeddings):
+        raise ValueError("n_neighbors cannot exceed the number of units")
     if n_neighbors <= 0:
         raise ValueError("`n_neighbors` must be positive.")
 
@@ -129,7 +138,7 @@ def chunked_knn_indices(
     if n_neighbors >= n_units and not include_self:
         raise ValueError("`n_neighbors` must be smaller than the number of units.")
 
-    k = n_neighbors if include_self else n_neighbors + 1
+    k = n_neighbors
     full_norm = (embeddings**2).sum(dim=1)
     all_indices = []
     all_distances = []
@@ -143,7 +152,9 @@ def chunked_knn_indices(
 
         if not include_self:
             row_ids = torch.arange(start, stop, device=embeddings.device)
-            distances[torch.arange(stop - start, device=embeddings.device), row_ids] = torch.inf
+            distances[torch.arange(stop - start, device=embeddings.device), row_ids] = (
+                torch.inf
+            )
 
         values, indices = torch.topk(distances, k=k, largest=False)
         if not include_self:
@@ -182,7 +193,9 @@ def _torch_kmeans(
     if n_groups > n_units:
         raise ValueError("`n_groups` cannot exceed the number of units.")
 
-    centers = embeddings[torch.randperm(n_units, device=embeddings.device)[:n_groups]].clone()
+    centers = embeddings[
+        torch.randperm(n_units, device=embeddings.device)[:n_groups]
+    ].clone()
 
     for _ in range(niter):
         distances = torch.cdist(embeddings, centers)
@@ -390,8 +403,13 @@ class KNNGroupedFixedEffects(BaseEstimator):
                     "`classification_unit_ids` can only be used with unit-level "
                     "`classification_features`."
                 )
-            classification_unit_ids = classification_unit_ids.to(self.device).to(dtype=torch.int64)
-            if classification_unit_ids.ndim != 1 or classification_unit_ids.numel() != embeddings.shape[0]:
+            classification_unit_ids = classification_unit_ids.to(self.device).to(
+                dtype=torch.int64
+            )
+            if (
+                classification_unit_ids.ndim != 1
+                or classification_unit_ids.numel() != embeddings.shape[0]
+            ):
                 raise ValueError(
                     "`classification_unit_ids` must be a vector with one entry per "
                     "unit-level classification-feature row."
@@ -403,8 +421,12 @@ class KNNGroupedFixedEffects(BaseEstimator):
                 )
             sorted_ids, order = torch.sort(classification_unit_ids)
             if torch.any(sorted_ids[1:] == sorted_ids[:-1]):
-                raise ValueError("`classification_unit_ids` must not contain duplicates.")
-            if sorted_ids.numel() != unit_levels.numel() or not torch.equal(sorted_ids, unit_levels):
+                raise ValueError(
+                    "`classification_unit_ids` must not contain duplicates."
+                )
+            if sorted_ids.numel() != unit_levels.numel() or not torch.equal(
+                sorted_ids, unit_levels
+            ):
                 raise ValueError(
                     "`classification_unit_ids` must match the sorted unique `unit_ids`."
                 )

@@ -1,10 +1,4 @@
-"""
-Linear regression estimators with fixed-effects support.
-
-This module contains `LinearRegression`, a PyTorch-native OLS estimator that
-supports weighted fitting, multi-way fixed-effects demeaning, and robust
-variance estimators.
-"""
+"""OLS/WLS with weighted fixed-effect absorption and sandwich inference."""
 
 from typing import Optional, Union, List
 
@@ -12,174 +6,149 @@ import numpy as np
 import torch
 
 from .base import BaseEstimator
-from .demean import demean_torch, prepare_fixed_effects
-
-
-def _calculate_vcov_details(
-    coef: torch.Tensor, X: torch.Tensor, y: torch.Tensor, se_type: str, n: int, k: int
-):
-    """Helper function to compute standard errors."""
-    ε = y - X @ coef
-    if se_type == "HC1":
-        M = torch.einsum("ij,i,ik->jk", X, ε**2, X)
-        XtX_inv = torch.linalg.inv(X.T @ X)
-        Σ = XtX_inv @ M @ XtX_inv
-        return torch.sqrt((n / (n - k)) * torch.diag(Σ))
-    elif se_type == "classical":
-        XtX_inv = torch.linalg.inv(X.T @ X)
-        return torch.sqrt(torch.diag(XtX_inv) * torch.var(ε, correction=k))
-    return None
+from .demean import demean_torch, fixed_effect_rank, prepare_fixed_effects
 
 
 class LinearRegression(BaseEstimator):
-    """
-    Linear regression model using PyTorch for efficient solving.
+    """Least squares with optional additive fixed effects.
 
-    This class provides a simple interface for fitting a linear regression
-    model with support for fixed effects and various standard error types.
+    ``X`` must include a constant if desired. ``weights`` are strictly positive
+    analytic/WLS weights, not frequency counts. ``classical`` uses weighted SSE
+    divided by residual degrees of freedom; HC0/HC1 use the weighted sandwich.
+    HC1 counts the exact rank of the absorbed effects by default.
 
-    Parameters
-    ----------
-    solver : str, default="torch"
-        Solver to use. Options are "torch" (PyTorch's lstsq) or "numpy".
-
-    Examples
-    --------
-    >>> import torch
-    >>> from trex import LinearRegression
-    >>>
-    >>> # Basic regression
-    >>> X = torch.randn(100, 5)
-    >>> y = X @ torch.randn(5) + 0.1 * torch.randn(100)
-    >>> model = LinearRegression()
-    >>> model.fit(X, y)
-    >>>
-    >>> # With fixed effects
-    >>> firm_ids = torch.randint(0, 10, (100,))
-    >>> model.fit(X, y, fe=[firm_ids])
+    Absorbed columns (including an intercept) retain zero coefficient/SE slots.
+    ``predict(X)`` returns the slope component only, **not** FE level predictions.
+    ``fitted_values_`` includes the fitted effects for the training observations.
     """
 
     def __init__(self, solver="torch", device=None):
-        """Initialize the LinearRegression model.
-
-        Args:
-            solver (str, optional): Solver. Defaults to "torch", can also be "numpy".
-            device (torch.device, str, or None): Device to use. Defaults to None (auto-detect).
-        """
         super().__init__(device=device)
-        self.solver: str = solver
+        if solver not in {"torch", "numpy"}:
+            raise ValueError("solver must be 'torch' or 'numpy'")
+        self.solver = solver
 
     def fit(
         self,
-        X: torch.Tensor,
-        y: torch.Tensor,
-        se: str = None,
+        X,
+        y,
+        se=None,
         fe: Optional[Union[List, torch.Tensor]] = None,
-        weights: Optional[torch.Tensor] = None,
-    ) -> "LinearRegression":
+        weights=None,
+        *,
+        tol=1e-10,
+        maxiter=100_000,
+        df_absorbed=None,
+    ):
+        """Fit; optionally override absorbed rank for large multi-way FE designs.
+
+        Rank-deficient non-absorbed columns raise instead of returning arbitrary
+        coefficients. Failed absorption raises rather than returning a partial fit.
         """
-        Fit the linear model.
-
-        Args:
-            X: The design matrix of shape (n_samples, n_features).
-            y: The target vector of shape (n_samples,).
-            se: Whether to compute standard errors. "HC1" for robust standard errors, "classical" for classical SEs.
-            fe: Fixed effects variables. Can be a list of arrays or a 2D array.
-            weights: Sample weights of shape (n_samples,).
-
-        Returns:
-            The fitted estimator.
-        """
-        # Move data to device
-        X = X.to(self.device)
-        y = y.to(self.device)
-        if weights is not None:
-            weights = weights.to(self.device)
-
-        # Store original data for potential SE calculation
-        X_orig, y_orig = X, y
-
-        # Handle fixed effects demeaning
+        X = torch.as_tensor(X, device=self.device)
+        dtype = X.dtype if X.is_floating_point() else torch.float64
         if fe is not None:
-            # Prepare fixed effects
+            dtype = torch.float64
+        X = X.to(dtype=dtype)
+        y = torch.as_tensor(y, device=self.device, dtype=dtype)
+        if X.ndim != 2 or y.shape != (X.shape[0],) or len(X) == 0:
+            raise ValueError("Expected nonempty X (n,p) and y (n,)")
+        if not torch.isfinite(X).all() or not torch.isfinite(y).all():
+            raise ValueError("X and y must be finite; handle missing rows explicitly")
+        if se not in {None, "classical", "HC0", "HC1"}:
+            raise ValueError("se must be classical, HC0, HC1 or None")
+        w = (
+            torch.ones(len(X), dtype=dtype, device=self.device)
+            if weights is None
+            else torch.as_tensor(weights, dtype=dtype, device=self.device)
+        )
+        if w.shape != y.shape or not torch.isfinite(w).all() or torch.any(w <= 0):
+            raise ValueError("weights must be finite, strictly positive and match y")
+        self.params = None
+        xw, yw = X, y
+        f = None
+        if fe is not None:
             if isinstance(fe, list):
-                flist = prepare_fixed_effects(fe)
+                f = prepare_fixed_effects(fe)
             else:
-                flist = torch.as_tensor(fe, dtype=torch.int64)
-                if flist.ndim == 1:
-                    flist = flist[:, None]
-
-            # Demean both X and y
-            X_demeaned, X_converged = demean_torch(X, flist, weights)
-            y_demeaned, y_converged = demean_torch(y[:, None], flist, weights)
-            y_demeaned = y_demeaned.flatten()
-
-            if not (X_converged and y_converged):
-                print("Warning: Demeaning did not converge")
-
-            # Use demeaned data for regression
-            X, y = X_demeaned, y_demeaned
-
-            # Drop near-zero columns (absorbed by FE, e.g., intercept)
-            col_norms = torch.norm(X, dim=0)
-            non_zero_cols = col_norms > 1e-8
-            if not torch.all(non_zero_cols):
-                self._dropped_cols = ~non_zero_cols
-                X = X[:, non_zero_cols]
-            else:
-                self._dropped_cols = None
-
-        if self.solver == "torch":
-            sol = torch.linalg.lstsq(X, y)
-            coef = sol.solution
-        elif self.solver == "numpy":  # for completeness
-            X_np, y_np = X.detach().cpu().numpy(), y.detach().cpu().numpy()
-            sol = np.linalg.lstsq(X_np, y_np, rcond=None)
-            coef = torch.from_numpy(sol[0]).to(self.device)
-
-        # Restore zeros for dropped columns (absorbed by FE)
-        if fe is not None and hasattr(self, '_dropped_cols') and self._dropped_cols is not None:
-            full_coef = torch.zeros(X_orig.shape[1], dtype=coef.dtype, device=self.device)
-            full_coef[~self._dropped_cols] = coef
-            coef = full_coef
-
-        self.params = {"coef": coef}
-
-        if se:
-            self._vcov(
-                y=y_orig if fe is not None else y,
-                X=X_orig if fe is not None else X,
-                se_type=se,
+                f = torch.as_tensor(fe, device=self.device)
+                if f.ndim == 1:
+                    f = f[:, None]
+            if f is None or f.shape[1] == 0:
+                raise ValueError("fe must contain at least one factor")
+            within, converged = demean_torch(
+                torch.column_stack([X, y]), f, w, tol=tol, maxiter=maxiter
             )
+            if not converged:
+                raise RuntimeError("Fixed-effect absorption did not converge")
+            xw, yw = within[:, :-1], within[:, -1]
+        keep = torch.linalg.vector_norm(xw, dim=0) > tol * torch.linalg.vector_norm(
+            X, dim=0
+        ).clamp_min(1)
+        # Only FE absorption may remove columns; otherwise rank deficiency is an error.
+        if f is None:
+            keep = torch.ones(X.shape[1], dtype=torch.bool, device=self.device)
+        design = xw[:, keep] * w.sqrt()[:, None]
+        target = yw * w.sqrt()
+        k = design.shape[1]
+        if k and int(torch.linalg.matrix_rank(design)) != k:
+            raise ValueError("Design is rank deficient after absorption")
+        if k == 0:
+            beta = torch.empty(0, dtype=dtype, device=self.device)
+        elif self.solver == "torch":
+            beta = torch.linalg.lstsq(design, target).solution
+        else:
+            beta = torch.as_tensor(
+                np.linalg.lstsq(design.cpu().numpy(), target.cpu().numpy(), rcond=None)[
+                    0
+                ],
+                dtype=dtype,
+                device=self.device,
+            )
+        coef = torch.zeros(X.shape[1], dtype=dtype, device=self.device)
+        coef[keep] = beta
+        residual = yw - xw[:, keep] @ beta
+        self.params = {"coef": coef}
+        self.residuals_ = residual.detach()
+        self.fitted_values_ = (y - residual).detach()
+        self._dropped_cols = ~keep
+        if se:
+            absorbed = (
+                0
+                if f is None
+                else fixed_effect_rank(f) if df_absorbed is None else df_absorbed
+            )
+            if not isinstance(absorbed, (int, np.integer)) or absorbed < 0:
+                raise ValueError("df_absorbed must be a nonnegative integer")
+            self.df_resid_ = len(X) - k - absorbed
+            if self.df_resid_ <= 0:
+                raise ValueError("No residual degrees of freedom for standard errors")
+            bread = (
+                torch.linalg.inv(design.T @ design)
+                if k
+                else torch.empty((0, 0), dtype=dtype, device=self.device)
+            )
+            wr = residual * w.sqrt()
+            if se == "classical":
+                covariance = bread * (wr.square().sum() / self.df_resid_)
+            else:
+                score = design * wr[:, None]
+                covariance = bread @ (score.T @ score) @ bread
+                if se == "HC1":
+                    covariance *= len(X) / self.df_resid_
+            full_cov = torch.zeros(
+                X.shape[1], X.shape[1], dtype=dtype, device=self.device
+            )
+            idx = torch.where(keep)[0]
+            full_cov[idx[:, None], idx[None, :]] = covariance
+            self.params.update(vcov=full_cov, se=full_cov.diag().clamp_min(0).sqrt())
         return self
 
-    def predict(self, X: torch.Tensor) -> torch.Tensor:
-        """
-        Predict using the fitted model.
-
-        Args:
-            X: Input features of shape (n_samples, n_features).
-
-        Returns:
-            Predicted values of shape (n_samples,).
-        """
-        if not isinstance(X, torch.Tensor):
-            X = torch.tensor(X)
-        X = X.to(self.device)
-        return torch.matmul(X, self.params["coef"])
-
-    def _vcov(
-        self,
-        y: torch.Tensor,
-        X: torch.Tensor,
-        se_type: str = "HC1",
-    ) -> None:
-        """Compute variance-covariance matrix and standard errors."""
-        n, k = X.shape
-        if self.params and "coef" in self.params:
-            coef = self.params["coef"]
-            se_values = _calculate_vcov_details(coef, X, y, se_type, n, k)
-            if se_values is not None:
-                self.params["se"] = se_values
-        else:
-            print("Coefficients not available for SE calculation.")
+    def predict(self, X):
+        """Slope-only predictions; additive FE contributions are not included."""
+        if self.params is None:
+            raise ValueError("Model must be fitted before prediction")
+        X = torch.as_tensor(X, dtype=self.params["coef"].dtype, device=self.device)
+        if X.ndim != 2 or X.shape[1] != len(self.params["coef"]):
+            raise ValueError("Prediction features do not match the fitted model")
+        return X @ self.params["coef"]
