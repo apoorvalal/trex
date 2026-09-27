@@ -259,7 +259,7 @@ for backend in ["mac-mps", "fwk-cuda"]:
     ax.tick_params(axis="both", length=0, labelsize=10)
     for spine in ax.spines.values(): spine.set_visible(False)
     cbar = fig.colorbar(im, ax=ax, fraction=.04, pad=.025)
-    cbar.set_ticks([-5, -3, -1, 0, 1, 3, 5], ["1/32", "1/8", "1/2", "1", "2", "8", "32"])
+    cbar.set_ticks([-5, -3, -1, 0, 1, 3, 5], labels=["1/32", "1/8", "1/2", "1", "2", "8", "32"])
     cbar.set_label("CPU time / GPU time")
     plt.show()
 ```
