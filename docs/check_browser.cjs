@@ -98,13 +98,13 @@ async function main() {
       failures.push('Benchmark size tab overflows the phone viewport');
     const archive = new URL('benchmarks/data/2026-09-27/', base);
     const sums = await fetch(new URL('SHA256SUMS', archive));
-    if (!sums.ok()) failures.push('Benchmark checksum download failed');
+    if (!sums.ok) failures.push('Benchmark checksum download failed');
     let downloads = 0;
     for (const line of (await sums.text()).trim().split('\n')) {
       const [expected, file] = line.trim().split(/\s+/);
       const response = await fetch(new URL(file, archive));
       const digest = createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex');
-      if (!response.ok() || digest !== expected) failures.push(`Benchmark download checksum failed: ${file}`);
+      if (!response.ok || digest !== expected) failures.push(`Benchmark download checksum failed: ${file}`);
       downloads++;
     }
     if (screenshotDir) await page.screenshot({path: path.join(screenshotDir, 'benchmark-mobile.png'), fullPage: true});
