@@ -1,102 +1,313 @@
 ---
-title: "Optional local language-model generators"
-description: "In-context row generation and QLoRA adapters, with explicit dependency and evaluation boundaries."
-execute:
-  eval: false
+title: "Language-model row generators"
+description: "An executed comparison of frozen Qwen and a trained QLoRA adapter: generated rows, held-out fit, training loss and GPU costs."
 ---
 
-## Two distinct operations
+Trex can generate numeric rows with a frozen language model, or first train
+a QLoRA adapter on the row-generation task. This example **runs both routes**
+with `Qwen/Qwen2.5-0.5B-Instruct` on an RTX 5070. It uses 800 training rows,
+512 held-out rows and 256 returned samples per generator.
 
-Trex's optional wrappers turn numeric training rows into text and parse
-generated text back into numeric rows. `SafetensorsLLMInContextGenerator.fit`
-stores examples; it does **not** update model weights. `sample` loads a local
-or Hugging Face model/tokenizer, constructs few-shot prompts, generates text,
-and collects parseable rows.
+**Result:** one epoch of adaptation makes CSV generation reliable and reduces
+exact training-row copying, but does **not** improve overall distributional
+fit in this run. Empirical resampling has a smaller joint-distribution
+discrepancy than either language-model generator.
 
-`SafetensorsQLORAGenerator` adds `fit_adapter`, which trains low-rank adapters
-on row-generation completions. For a frozen weight matrix $W$, LoRA uses
-$W+BA$ with a small inner dimension. QLoRA additionally loads the base in
-four-bit form while training the adapters at a higher compute precision.
-This reduces trainable state and memory, but does not make arbitrary models
-fit on any device.
+The GPU run was executed on September 27, 2026. All tables and figures below
+are recomputed from its saved data whenever this site is built; the complete
+prompts, completions and reproduction code are [downloadable](#reproduce-the-run).
 
-## Setup and example
+```{python}
+#| echo: false
+import sys
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from IPython.display import display, Markdown
 
-**The examples on this page are not executed by the documentation build.**
-They require an explicitly selected model, substantial model files and
-additional dependencies; the ordinary site build does not download weights
-or start adapter training. The core package imports these wrappers without
-eagerly importing Transformers or bitsandbytes.
+sys.path.insert(0, str(Path("..").resolve() / "benchmarks" / "llm_generators"))
+from analyze import (
+    load_saved, evaluate, scores_table, summary_table,
+    sample_plot, income_plot, loss_plot,
+)
+arrays, metadata, training, trainer_state, runs = load_saved(
+    Path("guides/data/llm-generators/2026-09-27/executed.json.gz")
+)
+scores = evaluate(arrays)
+columns = ["age", "employed", "income"]
+```
 
-Install the optional libraries into the environment in which the chosen
-model runs:
+## Data and task
+
+Each row contains age, a binary employment indicator and annual income in
+thousands. The data-generating process has a point mass at zero income and
+a positive, age-dependent income distribution among employed people:
+
+$$
+\begin{aligned}
+A&\sim\operatorname{Uniform}\{18,\ldots,65\},\\
+E\mid A&\sim\operatorname{Bernoulli}
+  \left(\operatorname{logit}^{-1}[-0.2+0.035(A-35)]\right),\\
+Y&=E\cdot\operatorname{round}
+  \left(\exp[3.2+0.025(A-35)+0.35Z],\,2\right),
+  \qquad Z\sim N(0,1).
+\end{aligned}
+$$
+
+The models see numeric training examples and the column names, **not this
+formula or the held-out rows**. Seed `20260927` generates the training,
+held-out and independent-reference samples in that order. Here are the first
+eight training observations:
+
+```{python}
+#| echo: false
+display(pd.DataFrame(arrays["train"][:8], columns=columns))
+```
+
+The independent target draw is a finite-sample reference, not a fitted method
+or a lower bound on the discrepancy. Empirical resampling draws 256 rows with
+replacement from the same training set, using seed `725`.
+
+## Frozen in-context generation
+
+`fit` stores rows; it does not update the base model's parameters. Each prompt
+shows eight randomly selected training rows and requests eight new CSV rows.
+Trex uses its plain-text row prompt, not the model's chat template.
+
+The following is the configuration executed on the GPU. The downloadable
+runner also records every prompt, completion, parsing attempt and timing.
+
+```{python}
+#| eval: false
+import numpy as np
+import torch
+from huggingface_hub import snapshot_download
+from trex import SafetensorsLLMInContextGenerator, SafetensorsQLORAGenerator
+
+model_directory = snapshot_download(
+    "Qwen/Qwen2.5-0.5B-Instruct",
+    revision="7ae557604adf67be50417f59c2c2f167def9a775",
+    allow_patterns=["*.json", "*.safetensors", "merges.txt", "vocab.json"],
+)
+training_rows = np.loadtxt("train.csv", delimiter=",", skiprows=1)
+settings = dict(
+    model_path=model_directory, examples=8, rows_per_prompt=8,
+    max_new_tokens=384, max_attempts=128, temperature=0.7,
+    load_in_4bit=True, device="cuda",
+)
+frozen = SafetensorsLLMInContextGenerator(**settings).fit(
+    training_rows, column_names=["age", "employed", "income"],
+)
+np.random.seed(724)
+torch.manual_seed(724)
+frozen_rows = frozen.sample(256)
+```
+
+`sample` parses numeric lines with the required number of columns, retries
+when insufficient rows have been collected, and returns the first requested
+number. It does not enforce binary columns, enforce the data-generating
+process's support, or remove copied rows.
+
+## Training and reloading a QLoRA adapter
+
+For a frozen matrix $W$, LoRA trains the low-rank update $BA$ in $W+BA$.
+Here the base uses **four-bit NF4 with double quantization and BF16 compute**,
+and the adapter has rank 16, scaling parameter 32 and dropout 0.05.
+Generation reloads the same quantization configuration as training.
+
+```{python}
+#| eval: false
+adapted = SafetensorsQLORAGenerator(**settings).fit(
+    training_rows, column_names=["age", "employed", "income"],
+)
+adapted.fit_adapter(
+    output_dir="adapters/row-generator",
+    num_train_epochs=1, train_samples=512, rows_per_completion=4,
+    per_device_train_batch_size=1, gradient_accumulation_steps=8,
+    max_length=384, learning_rate=2e-4,
+    lora_r=16, lora_alpha=32, lora_dropout=0.05, seed=123,
+)
+np.random.seed(724)
+torch.manual_seed(724)
+adapted_rows = adapted.sample(256)
+```
+
+The 512 training examples are prompt/completion pairs constructed solely
+from the 800 training rows, not 512 additional observations. Each completion
+contains four rows. Prompt and padding tokens have loss labels masked out;
+only completion tokens train the adapter. All examples retained supervised
+tokens after truncation: **31–47 tokens per example**.
+
+The completed run performed **64 optimizer steps**, trained **8,798,208
+adapter parameters**, saved the adapter, and reloaded it for generation.
+
+```{python}
+#| echo: false
+#| fig-cap: "Training loss averaged over each logged window. This is completion-token loss, not held-out tabular fit."
+loss_plot(trainer_state)
+plt.show()
+```
+
+The training loss decreases from 1.023 in the first logged window to 0.930
+in the last. It is not monotone, and a lower token loss does not guarantee a
+better joint distribution of numeric observations.
+
+## Actual generated rows
+
+These are the **first six returned rows**, without selection, clipping,
+rounding or deduplication after generation.
+
+::: {.panel-tabset}
+
+### Frozen Qwen
+
+```{python}
+#| echo: false
+display(pd.DataFrame(arrays["frozen"][:6], columns=columns))
+```
+
+### Qwen + QLoRA
+
+```{python}
+#| echo: false
+display(pd.DataFrame(arrays["qlora"][:6], columns=columns))
+```
+
+:::
+
+```{python}
+#| echo: false
+#| fig-cap: "Held-out data and all 256 returned rows from each language-model generator. Green denotes employment equal to one; red denotes other values. Shared axes expose support and distribution differences."
+sample_plot(arrays)
+plt.show()
+```
+
+## Distributional fidelity
+
+Distances are computed against the 512 held-out rows after standardizing
+each column by its **training-set** mean and standard deviation. Sliced
+Wasserstein uses 128 projections with seed 91. Smaller distances and
+correlation errors are better. All returned rows are finite; **the seven
+support-invalid frozen-model rows remain in the primary metrics**.
+
+```{python}
+#| echo: false
+display(scores_table(scores))
+```
+
+The frozen model's sliced-Wasserstein distance is **0.198**, versus **0.270**
+after QLoRA and **0.158** for resampling. Adaptation improves correlation
+structure, but worsens the marginal distributions: employment shifts to
+**62.1%**, compared with **47.7%** in the held-out sample, and mean income
+rises to **23.04** rather than **16.96** thousand.
+
+```{python}
+#| echo: false
+display(summary_table(arrays))
+```
+
+```{python}
+#| echo: false
+#| fig-cap: "Empirical distribution functions. Adaptation generates too few zero-income rows and shifts the age distribution upward."
+income_plot(arrays)
+plt.show()
+```
+
+Copying also matters. Among generated rows with employment equal to one,
+**74.6%** of frozen-model rows exactly match a training row, versus **0.63%**
+after adaptation. This is a diagnostic, not a privacy guarantee. Zero-income
+rows naturally repeat because age takes only 48 integer values; counting
+every such match as memorization would be misleading. Resampling intentionally
+copies its entire output.
+
+The summaries report the percentage of rows whose employment field is
+exactly one, rather than treating an invalid numeric indicator as a probability.
+This is one fixed-budget run, with no tuning on the held-out sample; it
+establishes the behavior of this example, not a general ranking of models.
+
+## Parsing reliability and cost
+
+Frozen Qwen frequently writes prose or Python code instead of the requested
+CSV. **44 of its 62 attempts return no parseable rows**. Adaptation eliminates
+empty attempts in this run, although neither model reliably returns exactly
+the requested row count. Valid CSV is distinct from a valid economic row.
+
+```{python}
+#| echo: false
+display(pd.DataFrame({
+    label: {
+        "Returned rows": run["rows"],
+        "Generation attempts": run["attempts"],
+        "Zero-row attempts": run["zero_row_attempts"],
+        "Parsed before truncation": run["parsed_before_final_truncation"],
+    }
+    for label, run in [("Frozen Qwen", runs["frozen"]), ("Qwen + QLoRA", runs["qlora"])]
+}).T)
+display(pd.DataFrame([
+    {"Operation": "Train and save adapter", "Wall seconds": training["elapsed_seconds"],
+     "Model-load seconds (included)": np.nan,
+     "Peak Torch allocation (GiB)": training["peak_allocated_bytes"] / 2**30},
+    *[{"Operation": label + ": generate 256 rows",
+       "Wall seconds": runs[name]["sample_seconds_including_load"],
+       "Model-load seconds (included)": runs[name]["model_load_seconds"],
+       "Peak Torch allocation (GiB)": runs[name]["peak_allocated_bytes"] / 2**30}
+      for name, label in [("frozen", "Frozen"), ("qlora", "QLoRA")]],
+]).set_index("Operation").round(2))
+```
+
+Sampling takes **374 seconds frozen** and **79 seconds adapted**; the latter
+also required **92 seconds of training**. Timings include model loading,
+all unsuccessful generation attempts and parsing. Training includes loading,
+dataset preparation and saving. Initial model download is excluded.
+Memory is PyTorch's peak allocated memory, not total GPU or system usage.
+These wrappers issue serial generation calls; this is not an optimized
+batched serving benchmark.
+
+## Reproduce the run
+
+- [Replication ZIP](data/llm-generators/2026-09-27/replication.zip): all input
+  and output CSVs, exact prompts/completions, training log, environment,
+  scoring code and the source snapshot used for execution.
+- [Saved execution record](data/llm-generators/2026-09-27/executed.json.gz)
+  and [SHA-256 checksums](data/llm-generators/2026-09-27/SHA256SUMS).
+- [GPU runner](https://github.com/apoorvalal/trex/blob/main/benchmarks/llm_generators/run.py)
+  and [saved-data analysis](https://github.com/apoorvalal/trex/blob/main/benchmarks/llm_generators/analyze.py).
+
+Install Trex from this repository in a CUDA-enabled environment. The optional
+runtime dependencies are `transformers`, `safetensors`, `accelerate`, `peft`
+and `bitsandbytes`. The exact versions used here are:
+
+```{python}
+#| echo: false
+display(pd.Series({"Python": metadata["python"], **metadata["dependencies"]},
+                  name="Executed version").to_frame())
+```
+
+From the repository root:
 
 ```bash
-python -m pip install transformers safetensors accelerate peft bitsandbytes
+python benchmarks/llm_generators/run.py --out tmp/llm-guide/executed
 ```
 
-Availability of four-bit loading depends on the installed library versions
-and hardware. Use a supported CUDA environment for QLoRA; do not infer MPS or
-CPU compatibility from a generic `device` parameter.
+The script regenerates the data, downloads the pinned public checkpoint,
+trains and saves an adapter, reloads it, and records both generators' outputs.
+The `seed=123` argument controls construction of adapter-training examples;
+the current Trainer uses its default training seed 42. Sampling seeds are
+reset to 724. Use the complete runner to preserve the order of RNG-consuming
+operations. Library or kernel changes can still change sampled text.
 
-```python
-import numpy as np
-from trex import SafetensorsLLMInContextGenerator
+The saved-data build verifies file hashes, reparses **all** raw completions,
+checks that prompting used only training rows, and reproduces the metrics.
+Neither it nor CI requires model weights or a GPU. Base-model and adapter
+weights are not included in the small replication download; the record
+includes the trained adapter's hash.
 
-# A local model/tokenizer directory selected and downloaded separately.
-model_directory = "/path/to/your/model"
-training_rows = np.array([[24, 1, 12.5], [40, 0, 21.0], [33, 1, 17.2]])
-generator = SafetensorsLLMInContextGenerator(
-    model_path=model_directory, examples=3, rows_per_prompt=4,
-    max_new_tokens=256, max_attempts=10, temperature=0.7, device="cuda",
-).fit(training_rows, column_names=["age", "employed", "income"])
-synthetic_rows = generator.sample(12)
-```
+For this low-dimensional task, **resampling remains the more effective
+baseline**. These APIs are useful for testing language-model generation,
+but a token likelihood is not a continuous tabular density, and a successfully
+trained adapter is not evidence of improved synthetic data.
 
-Those three rows illustrate the interface only; they are far too small a
-sample on which to learn or assess a joint distribution. Use real training,
-validation and held-out partitions in an application.
-
-```python
-from trex import SafetensorsQLORAGenerator
-
-adapted = SafetensorsQLORAGenerator(
-    model_path=model_directory, examples=3, load_in_4bit=True, device="cuda",
-).fit(training_rows, column_names=["age", "employed", "income"])
-adapted.fit_adapter(
-    output_dir="adapters/row-generator", num_train_epochs=1,
-    rows_per_completion=2, lora_r=16, lora_alpha=32,
-)
-synthetic_rows = adapted.sample(12)
-```
-
-## Text likelihood is not a tabular likelihood
-
-Tokenization, column order, numeric formatting and prompting all change the
-task seen by the language model. A probability for a sequence of tokens is
-not automatically a density for a continuous row. Parsing and rejection
-further change the distribution of returned samples. Record the model
-revision, tokenizer, prompt settings, sampling parameters, adapter and
-rejection behavior when comparing experiments.
-
-Enforce schema and support restrictions after generation, and distinguish
-invalid output from a valid but unusual observation. A successfully parsed
-row need not satisfy accounting identities or structural restrictions.
-Check duplication and proximity to training examples; generative modeling
-does not establish privacy or absence of memorization.
-
-## When is this useful?
-
-These wrappers make it possible to explore whether pretrained language-model
-representations help with a narrowly specified numeric simulation task. They
-are not the default recommendation for ordinary low-dimensional tabular data.
-Compare against empirical resampling, parametric baselines, mixtures, and
-[tabular GAN/diffusion models](generative-models.qmd), accounting for model
-loading and adaptation cost.
-
-HTTP serving, prompt experiments and llama.cpp endpoint orchestration are
-outside this package API. These classes use the Transformers/safetensors
-route directly.
-
+**Related:** [tabular GAN and diffusion models](generative-models.qmd).
 **API:** [SafetensorsLLMInContextGenerator](../reference/SafetensorsLLMInContextGenerator.qmd),
 [SafetensorsQLORAGenerator](../reference/SafetensorsQLORAGenerator.qmd).

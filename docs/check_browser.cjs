@@ -108,8 +108,31 @@ async function main() {
       downloads++;
     }
     if (screenshotDir) await page.screenshot({path: path.join(screenshotDir, 'benchmark-mobile.png'), fullPage: true});
+    await page.goto(new URL('guides/llm-generators.html', base).href, {waitUntil: 'networkidle'});
+    await page.getByRole('tab', {name: 'Qwen + QLoRA', exact: true}).click();
+    const samples = await page.locator('[role="tabpanel"]:visible').innerText();
+    if (!/income/.test(samples) || !/employed/.test(samples))
+      failures.push('LLM generator tab did not show executed sample rows');
+    if (await page.locator('.quarto-figure img').count() !== 3)
+      failures.push('LLM generator figures are missing');
+    if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2))
+      failures.push('LLM generator table overflows the phone viewport');
+    const llmArchive = new URL('guides/data/llm-generators/2026-09-27/', base);
+    const llmSums = await fetch(new URL('SHA256SUMS', llmArchive));
+    if (!llmSums.ok) failures.push('LLM checksum download failed');
+    let llmDownloads = 0;
+    for (const line of (await llmSums.text()).trim().split('\n')) {
+      const [expected, file] = line.trim().split(/\s+/);
+      const response = await fetch(new URL(file, llmArchive));
+      const digest = createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex');
+      if (!response.ok || digest !== expected) failures.push('LLM download checksum failed: ' + file);
+      llmDownloads++;
+    }
+    if (screenshotDir) await page.screenshot({path: path.join(screenshotDir, 'llm-mobile.png'), fullPage: true});
+    await page.setViewportSize({width: 1440, height: 1000});
+    if (screenshotDir) await page.screenshot({path: path.join(screenshotDir, 'llm-desktop.png'), fullPage: true});
     if (failures.length) throw new Error([...new Set(failures)].join('\n'));
-    console.log(JSON.stringify({page_viewports_checked: inspected, widths: [1440, 390], search: 'passed', mobile_navigation: 'passed', theme_toggle: 'passed', benchmark_tabs: 'passed', benchmark_download_checksums: downloads}));
+    console.log(JSON.stringify({page_viewports_checked: inspected, widths: [1440, 390], search: 'passed', mobile_navigation: 'passed', theme_toggle: 'passed', benchmark_tabs: 'passed', benchmark_download_checksums: downloads, llm_sample_tabs: 'passed', llm_download_checksums: llmDownloads}));
   } finally {
     if (browser) await browser.close();
     if (server) server.kill();

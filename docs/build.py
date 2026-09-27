@@ -188,9 +188,9 @@ def provenance(names):
         "python": sys.version.split()[0], "quarto": output("quarto", "--version"),
         "dependencies": versions, "api_entries": len(names),
         "katex": "0.16.22 (locally bundled, SHA-256 verified)",
-        "executable_guides": [p.stem for p in sorted((DOCS / "guides").glob("*.qmd"))
-                              if p.stem != "llm-generators"],
-        "nonexecuted_guides": ["llm-generators"],
+        "executable_guides": [p.stem for p in sorted((DOCS / "guides").glob("*.qmd"))],
+        "gpu_fit_replay_guides": ["llm-generators"],
+        "nonexecuted_guides": [],
     }
 
 

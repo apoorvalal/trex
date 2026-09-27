@@ -15,6 +15,7 @@ project:
     - llms.txt
     - build-info.json
     - benchmarks/data/
+    - guides/data/
 
 website:
   title: Trex

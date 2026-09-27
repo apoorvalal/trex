@@ -32,9 +32,11 @@ quarto preview docs
 ```
 
 Preview is not a substitute for the final executable build. All lightweight
-examples use explicit seeds and the CPU. The optional LLM guide is labeled
-non-executed and does not download model weights. Figures and printed tables
-on the other worked pages are produced by their code, not copied manually.
+examples use explicit seeds and the CPU. The LLM guide replays an executed
+CUDA experiment: each build verifies saved hashes and raw completions, then
+recomputes the tables and figures without downloading weights or training.
+Its GPU reproduction script is linked from the guide. Figures and printed
+tables on the other worked pages are likewise produced by their code.
 CI additionally checks every page in Chromium at desktop and mobile widths,
 including equation rendering, search, theme switching and sidebar navigation.
 
