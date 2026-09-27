@@ -47,7 +47,7 @@ indexed = {(r["case"], r["backend"]): r for r in rows}
 def table(headers, values):
     head = "".join(f"<th>{h}</th>" for h in headers)
     body = "".join("<tr>" + "".join(f"<td>{v}</td>" for v in row) + "</tr>" for row in values)
-    display(HTML(f'<div class="table-responsive"><table class="table table-sm"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'))
+    display(HTML(f'<div class="benchmark-table table-responsive"><table class="table table-sm"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'))
 
 def marker(r):
     return " ‡" if r["agreement_pass"] is False else " †" if r["cap_hit"] or (r["score_flag"] and r["budget"] != "fixed_steps") else ""
@@ -101,6 +101,8 @@ stop after their fixed training budget.
 
 ## Machines and software
 
+::: {.benchmark-table .table-responsive}
+
 | | Apple system | CUDA system (`fwk`) |
 |---|---|---|
 | CPU | Apple M4, 10 cores | Intel Core i5-1240P, 12 cores / 16 threads |
@@ -110,6 +112,8 @@ stop after their fixed training budget.
 | Torch | 2.9.1 | 2.9.1+cu128 |
 | Python | 3.12.11 | 3.12.12 |
 | CUDA runtime / driver | — | 12.8 / 595.84 |
+
+:::
 
 Both environments use **NumPy 2.4.2, SciPy 1.17.0, pandas 2.3.3 and
 pytorch-minimize 0.0.2**. Eight intra-op/BLAS threads and one Torch inter-op
@@ -128,6 +132,8 @@ The shape definitions matter: “large” is relative to each algorithm, not a
 common amount of computation. A dense kernel has quadratic storage; a linear
 regression with few columns does not.
 
+::: {.benchmark-table .table-responsive}
+
 | Workload | Small | Medium | Large | Precision / fitting rule |
 |---|---:|---:|---:|---|
 | [Weighted least squares](../guides/linear-regression.qmd) | 1,000 × 8 | 20,000 × 32 | 200,000 × 64 | float32; weighted solve + HC1 |
@@ -144,6 +150,8 @@ regression with few columns does not.
 | [Synthetic DID](../guides/synthetic-did.qmd) | 100 × 50 | 500 × 120 | 2,000 × 240 | float32; simplex Frank–Wolfe weights |
 | [NFXP](../guides/dynamic-choice.qmd) | 2,000 / 16 | 10,000 / 48 | 50,000 / 128 | float64; observations / states, 2 actions |
 | [Hotz–Miller](../guides/dynamic-choice.qmd) | 2,000 / 16 | 10,000 / 48 | 50,000 / 128 | float64; observations / states, 2 actions |
+
+:::
 
 Regression dimensions are $n\times p$; multinomial logit adds $J$ choices and
 GMM adds $q$ instruments. Panel dimensions are units $\times$ periods. MMR and
@@ -171,7 +179,7 @@ CPU/CUDA random-number streams changing the estimation problem.
   claim of optimization convergence.
 - Matrix completion and latent factors use rank-three synthetic signals and
   approximately 80% observed cells. Matrix completion uses
-  `lambda_fraction=0.1, maxiter=80, tol=1e-5`. The latent model adds three
+  `lambda_fraction=0.1`, `maxiter=80`, `tol=1e-5`. The latent model adds three
   covariates, penalty 0.001 and 120 AdamW steps at learning rate 0.02; its
   initialization includes a least-squares solve and SVD. Fitted predictions,
   not nonidentified factor signs, are compared.
@@ -190,6 +198,7 @@ after warm-up. Model construction, movement from host RAM, the public `fit`
 method, and copying fitted results back to CPU are included. Imports, disk I/O,
 data generation, SSH transfer, and post-fit quality diagnostics are excluded.
 Where the public fit computes standard errors, their cost is included.
+On narrow screens, scroll the tables horizontally to see all four backends.
 
 † indicates a score diagnostic or iteration-cap warning; ‡ means the numerical
 agreement rule failed. The timing is still reported, but it is not presented as
