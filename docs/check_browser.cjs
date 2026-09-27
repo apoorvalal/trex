@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const {spawn} = require('node:child_process');
+const {createHash} = require('node:crypto');
 const {chromium} = require(process.env.TREX_PLAYWRIGHT_MODULE || 'playwright');
 
 async function main() {
@@ -86,8 +87,29 @@ async function main() {
     await page.getByRole('button', {name: 'Toggle sidebar navigation'}).click();
     await page.waitForFunction(() => document.querySelector('#quarto-sidebar').getBoundingClientRect().width === 0);
     if (screenshotDir) await page.screenshot({path: path.join(screenshotDir, 'mobile.png'), fullPage: true});
+
+    // The performance page's size tabs and archived measurements are part of
+    // the public interface, not merely files that happen to render.
+    await page.goto(new URL('benchmarks/devices.html', base).href, {waitUntil: 'networkidle'});
+    await page.getByRole('tab', {name: 'Large', exact: true}).click();
+    const large = await page.locator('[role="tabpanel"]:visible').innerText();
+    if (!/200000/.test(large) || !/fixed work/.test(large)) failures.push('Large benchmark tab did not show its timing table');
+    if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2))
+      failures.push('Benchmark size tab overflows the phone viewport');
+    const archive = new URL('benchmarks/data/2026-09-27/', base);
+    const sums = await fetch(new URL('SHA256SUMS', archive));
+    if (!sums.ok()) failures.push('Benchmark checksum download failed');
+    let downloads = 0;
+    for (const line of (await sums.text()).trim().split('\n')) {
+      const [expected, file] = line.trim().split(/\s+/);
+      const response = await fetch(new URL(file, archive));
+      const digest = createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex');
+      if (!response.ok() || digest !== expected) failures.push(`Benchmark download checksum failed: ${file}`);
+      downloads++;
+    }
+    if (screenshotDir) await page.screenshot({path: path.join(screenshotDir, 'benchmark-mobile.png'), fullPage: true});
     if (failures.length) throw new Error([...new Set(failures)].join('\n'));
-    console.log(JSON.stringify({page_viewports_checked: inspected, widths: [1440, 390], search: 'passed', mobile_navigation: 'passed', theme_toggle: 'passed'}));
+    console.log(JSON.stringify({page_viewports_checked: inspected, widths: [1440, 390], search: 'passed', mobile_navigation: 'passed', theme_toggle: 'passed', benchmark_tabs: 'passed', benchmark_download_checksums: downloads}));
   } finally {
     if (browser) await browser.close();
     if (server) server.kill();
