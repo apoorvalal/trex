@@ -1,0 +1,36 @@
+---
+title: Devices, precision and inference
+---
+
+## Tensor conventions
+
+Most cross-sectional estimators take a design `X` of shape `(n, p)` and outcome `y` of shape `(n,)`. Multinomial logit uses one-hot `y` of shape `(n, J)`. Dense panel models use outcomes `(units, times)` and, when needed, covariates `(units, times, p)`. Dynamic choice has integer states/actions and a transition tensor `(states, actions, next_states)`.
+
+Add intercepts explicitly except where the documented estimator supplies its own (`AntitonicScoreMatchingRegression` defaults to one). Reject or handle missing observations before ordinary regression. For panel masks, `True` means **included in fitting**.
+
+## Precision and devices
+
+Base estimators choose CUDA when available, otherwise CPU. Pass `device="cpu"` or `device="cuda"` explicitly for reproducibility. Float64 is a sensible starting point for ill-conditioned moments, Bellman derivatives and covariance calculations; fixed-effect absorption and GMM use double precision internally. Apple MPS does not support float64 and is not a drop-in backend for those methods.
+
+GEL and antitonic score estimation perform substantial work in NumPy/SciPy. A tensor input does not guarantee GPU-resident computation. Device transfers, small matrix sizes, kernel launch overhead and dense kernel/transition storage can dominate runtime. Measure an actual workload before assuming acceleration.
+
+## Objectives and covariance scaling
+
+Optimization gradients and inferential covariance solve different problems. If $\bar g_n(\theta)=n^{-1}\sum_i g_i(\theta)$, the inverse curvature of a mean criterion is not automatically the finite-sample covariance. GMM reports
+
+$$
+\widehat{\operatorname{Var}}(\hat\theta)=\frac1n
+(G'WG)^{-1}G'W\widehat\Omega WG(G'WG)^{-1}.
+$$
+
+Its `covariance_` includes $1/n$; legacy `vtheta_` does not. Likelihood models use their implemented Fisher-information calculation, not a generic robust sandwich. A Poisson conditional mean can be useful under overdispersion while its model-based standard errors are inappropriate. HC1 in linear regression is heteroskedasticity-robust, not serially or cluster robust.
+
+## Optimization diagnostics
+
+- Inspect objective histories and sensitivity to starting values for nonconvex models.
+- Compare more iterations and reasonable tolerances; small objective changes need not imply a unique or identified estimate.
+- Check rank, overlap and support before optimization. Numerical regularization changes an objective; it does not establish identification.
+- Distinguish probabilities from log probabilities. Stable `log_softmax` and log-CDF calculations matter especially for rare choices.
+- Seed every experiment and record versions. CPU/CUDA results can differ without either being wrong; test appropriate numerical tolerances rather than bitwise equality.
+
+These examples are deliberately small, generally single-seed demonstrations. A substantive comparison needs repeated DGPs/seeds, held-out evaluation, matched computational budgets and an explicitly chosen estimand.

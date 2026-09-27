@@ -1,0 +1,82 @@
+---
+title: "Development and documentation"
+execute:
+  eval: false
+---
+
+## Source and installation
+
+The source repository is [apoorvalal/trex](https://github.com/apoorvalal/trex).
+Install it from GitHub into an environment with an appropriate PyTorch build;
+the unrelated package named `trex` on PyPI is not this library. The [installation
+guide](start/installation.qmd) describes both editable and commit-pinned use.
+
+## Build the site
+
+Install **Quarto 1.8.27** and the Python documentation extra. Use the same
+Python environment for the package, Quartodoc and executable examples:
+
+```bash
+python -m pip install -e '.[docs]'
+python docs/build.py
+```
+
+The builder generates API pages with Quartodoc, checks coverage of public
+exports, records the source revision and environment, executes the vignettes,
+renders the website, and checks internal links and assets. Output goes to
+`docs/_site/`; it is not committed to the source branch. During writing:
+
+```bash
+python docs/build.py --api-only
+quarto preview docs
+```
+
+Preview is not a substitute for the final executable build. All lightweight
+examples use explicit seeds and the CPU. The optional LLM guide is labeled
+non-executed and does not download model weights. Figures and printed tables
+on the other worked pages are produced by their code, not copied manually.
+CI additionally checks every page in Chromium at desktop and mobile widths,
+including equation rendering, search, theme switching and sidebar navigation.
+
+## How publication works
+
+Source lives on `main`; generated HTML and assets live on **`gh-pages`**.
+The `docs` GitHub Actions workflow builds and checks pull requests without
+publishing. A successful build on `main` (or a manual workflow run on `main`)
+commits the rendered site to `gh-pages` and deploys the same files through
+GitHub Pages. This explicit deploy step avoids relying on a second workflow
+being triggered by an Actions-authored branch push.
+
+Do not hand-edit `gh-pages`: edit `.qmd` files or Python docstrings on a source
+branch. Once merged to `main`, the site is rebuilt automatically. The published
+[build record](build-info.json) identifies its source commit, build time and
+key dependency versions. The `gh-pages` commit message also records the source
+revision, so rendered changes remain inspectable and recoverable.
+
+## Adding or changing an estimator
+
+1. Document its input shapes, objective, normalization, fitted attributes and
+   failure conditions in source docstrings. Make supported inference explicit.
+2. Add its public entry point to the Quartodoc inventory in `_quarto.yml`.
+   The build rejects omissions from the package's declared public exports.
+3. Add a mathematical guide or extend an existing one. Include a small
+   reproducible example, a relevant diagnostic and an explanation of the
+   assumptions needed to interpret the estimate.
+4. Add numerical tests that address the estimator, preferably with independent
+   reference calculations, and run the affected tests. For broader changes run
+   the repository suite with the test extra installed.
+5. Run the documentation build. Inspect plots and formulas as well as exit
+   status; a successful optimizer call need not be an informative example.
+
+## Documentation design
+
+The site uses local/shared Quarto assets and KaTeX for mathematics. It is a
+multipage website, so shared assets avoid duplicating large scripts in every
+API page. No external font service is required. The sidebar, search and
+method-selection page provide complementary ways to find material.
+
+The API reference is generated from the installed checkout, including
+inherited public methods. A displayed inherited method can still be
+unimplemented for a particular estimator: consult the method body/docstring
+and the guide's inference notes. Research interfaces and numerical behavior
+can evolve; pin a commit and environment for a reproducible study.

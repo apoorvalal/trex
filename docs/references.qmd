@@ -1,0 +1,92 @@
+---
+title: "References and further reading"
+execute:
+  eval: false
+---
+
+These references explain the statistical ideas behind the guides. A citation
+is not a claim that Trex implements every estimator, assumption, inference
+procedure or computational refinement in the cited work. The [API reference](reference/index.qmd)
+and each guide's scope section describe the implementation actually provided.
+
+## Regression and moment restrictions
+
+- Hansen, L. P. (1982). **Large Sample Properties of Generalized Method of
+  Moments Estimators.** *Econometrica* 50(4), 1029–1054.
+  [DOI](https://doi.org/10.2307/1912775).
+- Newey, W. K., and K. D. West (1987). **A Simple, Positive Semi-Definite,
+  Heteroskedasticity and Autocorrelation Consistent Covariance Matrix.**
+  *Econometrica* 55(3), 703–708. [DOI](https://doi.org/10.2307/1913610).
+- Newey, W. K., and R. J. Smith (2004). **Higher Order Properties of GMM
+  and Generalized Empirical Likelihood Estimators.** *Econometrica* 72(1),
+  219–255. [DOI](https://doi.org/10.1111/j.1468-0262.2004.00482.x).
+- Muandet, K., W. Jitkrittum, and J. Kübler (2020). **Kernel Conditional
+  Moment Test via Maximum Moment Restriction.** *UAI*.
+  [Proceedings](https://proceedings.mlr.press/v124/muandet20a.html).
+- **Optimal Convex M-Estimation for Linear Regression via Antitonic Score
+  Matching.** The [R package `asm`](https://rdrr.io/cran/asm/) documents the
+  original procedure and references. Trex ports its core score-learning idea;
+  its numerical options and inferential implementation are not a claim of
+  complete feature parity with the R package.
+
+For least squares, Frisch–Waugh–Lovell projections, sandwich covariance and
+identification, a graduate econometrics treatment is useful alongside the
+worked code. GMM and kernel criteria require valid moments; automatic
+differentiation supplies derivatives, not identifying assumptions.
+
+## Choice and structural dynamics
+
+- Rust, J. (1987). **Optimal Replacement of GMC Bus Engines: An Empirical
+  Model of Harold Zurcher.** *Econometrica* 55(5), 999–1033.
+  [DOI](https://doi.org/10.2307/1911259).
+- Hotz, V. J., and R. A. Miller (1993). **Conditional Choice Probabilities
+  and the Estimation of Dynamic Models.** *Review of Economic Studies*
+  60(3), 497–529. [DOI](https://doi.org/10.2307/2298122).
+- Train, K. (2009). **Discrete Choice Methods with Simulation**, second
+  edition. [Author's book page](https://eml.berkeley.edu/books/choice2.html).
+- Kallus, N., and M. Udell (2016). **Revealed Preference at Scale: Learning
+  Personalized Preferences from Assortment Choices.**
+  [arXiv](https://arxiv.org/abs/1509.05113).
+
+## Panels and low-rank structure
+
+- Arkhangelsky, D., S. Athey, D. A. Hirshberg, G. W. Imbens, and S. Wager
+  (2021). **Synthetic Difference-in-Differences.** *American Economic Review*
+  111(12), 4088–4118. [DOI](https://doi.org/10.1257/aer.20190159).
+  [Reference implementation](https://github.com/synth-inference/synthdid).
+- Athey, S., M. Bayati, N. Doudchenko, G. Imbens, and K. Khosravi (2021).
+  **Matrix Completion Methods for Causal Panel Data Models.** *JASA*.
+  [Working-paper version](https://arxiv.org/abs/1710.10251).
+- Mazumder, R., T. Hastie, and R. Tibshirani (2010). **Spectral Regularization
+  Algorithms for Learning Large Incomplete Matrices.** *JMLR* 11, 2287–2322.
+  [Article](https://www.jmlr.org/papers/v11/mazumder10a.html).
+- Bonhomme, S., T. Lamadon, and E. Manresa (2022). **Discretizing Unobserved
+  Heterogeneity.** *Econometrica* 90(2), 625–643.
+  [Working-paper version](https://arxiv.org/abs/2102.02124).
+
+## Generative models
+
+- Gulrajani, I., F. Ahmed, M. Arjovsky, V. Dumoulin, and A. Courville (2017).
+  **Improved Training of Wasserstein GANs.**
+  [arXiv](https://arxiv.org/abs/1704.00028).
+- Ho, J., A. Jain, and P. Abbeel (2020). **Denoising Diffusion Probabilistic
+  Models.** [arXiv](https://arxiv.org/abs/2006.11239).
+- Sohn and Song. **Parallelly Tempered Generative Adversarial Nets:
+  Toward Stabilized Gradients.**
+  See the [paper and current revision](https://arxiv.org/abs/2411.11786)
+  for the convex tempering and coherency construction used by `TabularPTGAN`.
+- Hu, E. J., et al. (2022). **LoRA: Low-Rank Adaptation of Large Language
+  Models.** [arXiv](https://arxiv.org/abs/2106.09685).
+- Dettmers, T., A. Pagnoni, A. Holtzman, and L. Zettlemoyer (2023).
+  **QLoRA: Efficient Finetuning of Quantized LLMs.**
+  [arXiv](https://arxiv.org/abs/2305.14314).
+
+## Numerical references used by the repository
+
+The test suite compares selected calculations with SciPy, Statsmodels,
+linearmodels, saved R fixtures, independent finite differences and the
+`synthdid` California example. See
+[tests](https://github.com/apoorvalal/trex/tree/main/tests) and
+[fixture provenance](https://github.com/apoorvalal/trex/blob/main/tests/data/README.md).
+These checks have defined scopes; they do not establish correctness of all
+possible inputs or replace an estimator-specific design and validation study.

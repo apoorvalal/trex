@@ -1,0 +1,122 @@
+---
+title: "Static discrete choice"
+description: "Binary links, multinomial normalization, and low-rank preference matrices."
+---
+
+## Random utility and probability normalization
+
+A binary model observes $Y_i=1\{X_i'\beta+\varepsilon_i>0\}$.
+Logistic errors give $P_i=\operatorname{logit}^{-1}(X_i'\beta)$; standard
+normal errors give $P_i=\Phi(X_i'\beta)$. Their coefficient scales differ
+because the latent error variances are normalized differently. Compare
+probabilities or marginal effects, not raw logit and probit coefficients.
+
+Trex exposes `BinaryLogit` and `BinaryProbit` in `trex.choice`. The
+regression-family `LogisticRegression` additionally supports the fixed-effect
+and offset machinery described in [GLMs](likelihood-glms.qmd).
+
+For $J$ alternatives, the multinomial model is
+
+$$
+P(Y_i=j\mid X_i)=\frac{\exp(X_i'\beta_j)}
+{\sum_{k=1}^{J}\exp(X_i'\beta_k)},\qquad \beta_J=0.
+$$
+
+The **last alternative** is Trex's reference category. `X` has shape $(n,p)$,
+with the same observation-level covariates entering alternative-specific
+coefficient vectors. This is not a long-format conditional-logit formula API
+for arbitrary alternative-specific covariates.
+
+## Worked example: three alternatives
+
+```{python}
+import numpy as np
+import pandas as pd
+import torch
+import matplotlib.pyplot as plt
+from trex.choice import MultinomialLogit
+
+torch.set_num_threads(1)
+rng = np.random.default_rng(351)
+n = 1200
+x = rng.normal(size=n)
+X = np.c_[np.ones(n), x]
+beta = np.array([[0.3, -0.2], [1.0, -0.8]])
+logits = np.c_[X @ beta, np.zeros(n)]
+prob = np.exp(logits-logits.max(axis=1, keepdims=True))
+prob /= prob.sum(axis=1, keepdims=True)
+choices = np.array([rng.choice(3, p=p) for p in prob])
+y = np.eye(3)[choices]  # MultinomialLogit expects one-hot outcomes.
+fit = MultinomialLogit(maxiter=150, tol=1e-9, device="cpu").fit(
+    torch.tensor(X), torch.tensor(y)
+)
+pd.DataFrame(fit.params["coef"].detach().numpy(),
+             index=["Intercept", "x"], columns=["Alternative 0", "Alternative 1"]).round(3)
+```
+
+```{python}
+#| label: fig-multinomial-probabilities
+#| fig-cap: "Fitted probabilities sum to one and vary jointly with the covariate."
+grid = np.linspace(-2.5, 2.5, 160)
+pred = fit.predict_proba(torch.tensor(np.c_[np.ones(len(grid)), grid])).detach().numpy()
+assert np.allclose(pred.sum(axis=1), 1)
+fig, ax = plt.subplots()
+for j in range(3):
+    ax.plot(grid, pred[:, j], label=f"Alternative {j}")
+ax.set(xlabel="x", ylabel="Choice probability", ylim=(0, 1)); ax.legend(); plt.show()
+print("Covariance dimensions:", tuple(fit.params["vcov"].shape))
+```
+
+The covariance corresponds to the free, non-reference coefficients.
+For a covariate $x_k$, the probability derivative is
+$\partial P_j/\partial x_k=P_j(\beta_{kj}-\sum_\ell P_\ell\beta_{k\ell})$.
+A positive utility coefficient need not mean every comparison of average
+probabilities increases: the entire choice set and covariate distribution matter.
+
+## Low-rank preferences over assortments
+
+When users and products repeat, `LowRankLogit` replaces an unrestricted utility
+matrix by $\Theta=AB'$, with low-dimensional user and item factors. For a
+displayed assortment $S_i$,
+
+$$
+P(j\mid u_i,S_i)=\frac{\exp(\Theta_{u_i j})}
+{\sum_{k\in S_i}\exp(\Theta_{u_i k})},\quad j\in S_i.
+$$
+
+An assortment is part of the conditioning information: an unavailable item is
+not an observed rejection. The factors are not separately identified under
+rotations. The rank and penalty regularize predictions, not automatically
+economic preference parameters. Below is a small full-assortment fit.
+
+```{python}
+from trex.choice import LowRankLogit
+
+torch.manual_seed(13)
+n_users, n_items, n_obs = 20, 6, 300
+users = torch.randint(n_users, (n_obs,))
+utility = torch.randn(n_users, 2) @ torch.randn(2, n_items) * 0.4
+items = torch.multinomial(torch.softmax(utility[users], dim=1), 1).squeeze(1)
+low_rank = LowRankLogit(rank=2, n_users=n_users, n_items=n_items,
+                       lam=0.02, maxiter=80, device="cpu")
+low_rank.fit(users, items)
+print("Full-assortment probabilities for user 0:")
+print(low_rank.predict_proba(torch.tensor([0])).detach().numpy().round(3))
+```
+
+## Interpretation and checks
+
+Report held-out log loss as well as classification accuracy. Check rare
+alternatives and separation; finite optimization does not establish a finite
+MLE. Multinomial logit imposes IIA conditional on included covariates; low-rank
+heterogeneity changes the model but does not eliminate all substitution
+restrictions. Neither fitting choices nor changing covariates identifies price
+elasticities without an exogeneity or identification argument.
+
+Low-rank standard errors are not implemented. The static `counterfactual`
+helpers compare fitted probabilities; they do not solve a supply equilibrium.
+
+**API:** [BinaryLogit](../reference/choice.BinaryLogit.qmd),
+[BinaryProbit](../reference/choice.BinaryProbit.qmd),
+[MultinomialLogit](../reference/choice.MultinomialLogit.qmd),
+[LowRankLogit](../reference/choice.LowRankLogit.qmd).

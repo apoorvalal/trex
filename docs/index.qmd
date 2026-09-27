@@ -1,0 +1,50 @@
+---
+title: "Econometric models in PyTorch"
+---
+
+::: {.lead}
+Trex brings familiar econometric objectives into tensor-based workflows: least squares with fixed effects, moment restrictions, choice probabilities, panel counterfactuals and learned simulation models.
+:::
+
+The library is useful when an estimator needs to share data, derivatives or hardware with a PyTorch model. It is also a research collection: interfaces, computational costs and available inference differ across modules. These guides explain those distinctions alongside worked examples.
+
+::: {.method-grid}
+::: {.method-card}
+### Regression & inference
+Fit [weighted and fixed-effect regressions](guides/linear-regression.qmd), [binary/count likelihoods](guides/likelihood-glms.qmd), or [learn a robust regression score](guides/score-matching.qmd). Understand which covariance each fit returns.
+:::
+::: {.method-card}
+### Moment restrictions
+Build [GMM](guides/gmm.qmd) or [GEL](guides/gel.qmd) from observation-level moments. Move to [conditional moments](guides/conditional-moments.qmd) when instruments impose a function-valued restriction.
+:::
+::: {.method-card}
+### Structural choice
+Estimate [static choice probabilities](guides/static-choice.qmd), or solve and estimate [dynamic replacement decisions](guides/dynamic-choice.qmd) with NFXP and Hotz–Miller.
+:::
+::: {.method-card}
+### Panel counterfactuals
+Compare [SC and synthetic DID](guides/synthetic-did.qmd), reconstruct [missing cells](guides/matrix-completion.qmd), or fit [latent-factor GLMs](guides/latent-factors.qmd) and [grouped heterogeneity](guides/grouped-effects.qmd).
+:::
+::: {.method-card}
+### Simulation models
+Learn tabular distributions with [WGAN, PTGAN and diffusion](guides/generative-models.qmd), evaluate their diagnostics, and understand the separate role of [optional language-model generators](guides/llm-generators.qmd).
+:::
+::: {.method-card}
+### Interfaces & examples
+Start with a [complete regression fit](start/quickstart.qmd), consult the [method selection guide](start/choosing.qmd), then use the [API reference](reference/index.qmd) for signatures and options.
+:::
+:::
+
+## A recommended reading path
+
+1. [Install from the repository](start/installation.qmd). The unrelated PyPI package named `trex` is **not this library**.
+2. Work through the [quickstart](start/quickstart.qmd) and [numerical conventions](start/numerics.qmd).
+3. Pick a method by its assumptions and target, not merely its ability to fit a tensor. Every method guide connects a criterion to code, diagnostics and interpretation.
+
+## What the examples establish
+
+Numerical vignettes execute against the documented source and show their actual results. Small synthetic examples illustrate identification and computation; they are not broad claims about estimator rankings or accelerator speed. The panel vignette additionally uses the attributed California Proposition 99 fixture.
+
+The [reference-test record](https://github.com/apoorvalal/trex/blob/main/docs/audits/2026-09-23-cleanup.md) documents comparisons with R, Statsmodels, SciPy and linearmodels. Dynamic-choice and low-rank-logit standard errors are not implemented; generative-model fit quality does not establish causal validity. These limits are discussed where they affect an example.
+
+[Build provenance](build-info.json) records the source revision and software environment used for this site. [Contributing](contributing.qmd) explains how documentation changes reach `gh-pages`.

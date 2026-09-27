@@ -286,6 +286,31 @@ class TabularWGAN(BaseEstimator):
         context: Optional[Any] = None,
         callback: Optional[Callable[[int, "TabularWGAN"], None]] = None,
     ) -> "TabularWGAN":
+        """Train a tabular generator and critic on numeric rows.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_rows, n_features)
+            Training rows, converted to float32 on the selected device.
+            Standardization or schema transformations are the caller's job.
+        context : array-like of shape (n_rows, n_context), optional
+            Conditioning covariates aligned with the training rows. The model
+            does not learn the marginal distribution of these covariates.
+        callback : callable, optional
+            Called with the step and fitted object during training; useful for
+            recording diagnostics without changing the objective.
+
+        Returns
+        -------
+        TabularWGAN
+            Self, with trained networks and critic/generator loss histories.
+
+        Notes
+        -----
+        The critic penalty is one-sided: squared excess of gradient norm above
+        one. Binary output coordinates and numeric bounds constrain network
+        output; they are not a mixed-data likelihood or privacy guarantee.
+        """
         if self.seed is not None:
             torch.manual_seed(self.seed)
         x = _as_2d_tensor(X, self.device)
@@ -372,6 +397,21 @@ class TabularWGAN(BaseEstimator):
         return self
 
     def sample(self, n: int, context: Optional[Any] = None) -> torch.Tensor:
+        """Draw rows from the trained WGAN.
+
+        Parameters
+        ----------
+        n : int
+            Number of generated rows.
+        context : array-like of shape (n, n_context), optional
+            One context row per draw, using the training representation.
+
+        Returns
+        -------
+        torch.Tensor
+            Detached CPU tensor of shape (n, n_features). Values remain on
+            the training scale; apply inverse preprocessing separately.
+        """
         if not hasattr(self, "generator"):
             raise RuntimeError("TabularWGAN must be fitted before sampling.")
         was_training = self.generator.training
@@ -505,6 +545,30 @@ class TabularPTGAN(BaseEstimator):
         context: Optional[Any] = None,
         callback: Optional[Callable[[int, "TabularPTGAN"], None]] = None,
     ) -> "TabularPTGAN":
+        """Train across convexly tempered target distributions.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_rows, n_features)
+            Numeric training rows, converted to float32. Paired rows define
+            the convexly tempered training targets.
+        context : array-like of shape (n_rows, n_context), optional
+            Aligned conditioning rows. Their interpolation follows the
+            paired-data construction during training.
+        callback : callable, optional
+            Called with the step and model during training.
+
+        Returns
+        -------
+        TabularPTGAN
+            Self, with fitted networks and loss/penalty histories.
+
+        Notes
+        -----
+        This is a GAN objective over tempered laws, not replica-exchange MCMC.
+        The coherency penalty is a squared critic directional derivative along
+        paired data differences. Optional gradient penalties are one-sided.
+        """
         if self.seed is not None:
             torch.manual_seed(self.seed)
         x = _as_2d_tensor(X, self.device)
@@ -626,7 +690,24 @@ class TabularPTGAN(BaseEstimator):
         context: Optional[Any] = None,
         alpha: Any = 1.0,
     ) -> torch.Tensor:
-        """Draw rows at a requested temperature; ``alpha=1`` is the data law."""
+        """Draw rows at a requested tempering coordinate.
+
+        Parameters
+        ----------
+        n : int
+            Number of requested rows.
+        context : array-like of shape (n, n_context), optional
+            One conditioning row per draw.
+        alpha : float or array-like, default=1.0
+            Tempering coordinate in [0, 1], scalar or one value per row.
+            The endpoint 1 targets the original data law; interior coordinates
+            target convex combinations of paired rows.
+
+        Returns
+        -------
+        torch.Tensor
+            Detached CPU tensor of shape (n, n_features), on training scale.
+        """
         if not hasattr(self, "generator"):
             raise RuntimeError("TabularPTGAN must be fitted before sampling.")
         c = self._context_tensor(context, n)
@@ -828,6 +909,21 @@ class TabularDiffusion(BaseEstimator):
         self.history: dict[str, list[float]] = {"loss": []}
 
     def fit(self, X: Any, context: Optional[Any] = None) -> "TabularDiffusion":
+        """Fit a noise-prediction network with a discrete Gaussian schedule.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_rows, n_features)
+            Continuous numeric rows on the desired training scale. Converted
+            to float32; there is no automatic categorical likelihood.
+        context : array-like of shape (n_rows, n_context), optional
+            Conditioning covariates aligned with X.
+
+        Returns
+        -------
+        TabularDiffusion
+            Self, with denoiser, schedule and mean-squared noise-loss history.
+        """
         if self.seed is not None:
             torch.manual_seed(self.seed)
         x = _as_2d_tensor(X, self.device)
@@ -875,6 +971,26 @@ class TabularDiffusion(BaseEstimator):
         return self
 
     def sample(self, n: int, context: Optional[Any] = None) -> torch.Tensor:
+        """Generate rows by reversing the fitted discrete noise schedule.
+
+        Parameters
+        ----------
+        n : int
+            Number of requested rows.
+        context : array-like of shape (n, n_context), optional
+            One context row per draw, in the representation used for fitting.
+
+        Returns
+        -------
+        torch.Tensor
+            Detached CPU tensor of shape (n, n_features), on training scale.
+
+        Notes
+        -----
+        Sampling uses beta_t variance and no final-step noise. It starts from
+        a standard Gaussian; a schedule that leaves substantial signal at its
+        terminal step makes that initialization a poor approximation.
+        """
         if not hasattr(self, "denoiser"):
             raise RuntimeError("TabularDiffusion must be fitted before sampling.")
         self.denoiser.eval()

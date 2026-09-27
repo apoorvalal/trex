@@ -1,0 +1,101 @@
+---
+title: "K-nearest-neighbor grouped fixed effects"
+description: "Use unit-level information to estimate a small collection of time-varying latent types."
+---
+
+## Discretizing heterogeneity
+
+Grouped fixed effects approximate a unit-specific latent process with a
+finite number of types:
+
+$$
+Y_{it}=X_{it}'\beta+\alpha_{g(i),t}+\varepsilon_{it},\qquad
+g(i)\in\{1,\ldots,G\}.
+$$
+
+Compared with unit-by-time effects, grouping leaves variation with which to
+estimate slopes. Compared with additive unit effects, it allows type-specific
+time paths. The trade-off is approximation error and uncertainty about group
+membership. Increasing the number of groups can reduce approximation bias
+while leaving little within-group variation.
+
+Trex constructs unit-level features, smooths them across nearest neighbors,
+clusters the smoothed features, and fits a linear model absorbing
+group-by-time indicators. The default feature construction stacks the panel
+history of covariates and, unless disabled, outcomes. Alternatively supply
+purpose-built unit-level classification features. This is a particular
+KNN-smoothed implementation, not every estimator covered by the grouped-FE
+literature.
+
+## Worked example: an auxiliary type measurement
+
+The simulation includes a noisy auxiliary measurement of each unit's latent
+time path. This makes classification informative by construction; it is not
+evidence that arbitrary empirical clustering will recover meaningful types.
+
+```{python}
+import numpy as np
+import pandas as pd
+import torch
+import matplotlib.pyplot as plt
+from trex import KNNGroupedFixedEffects
+
+torch.set_num_threads(1)
+torch.manual_seed(505)
+N, T, G = 60, 8, 3
+unit_ids = torch.arange(N).repeat_interleave(T)
+time_ids = torch.arange(T).repeat(N)
+groups = torch.arange(N) % G
+clock = torch.linspace(-1, 1, T)
+paths = torch.stack([clock, -clock, 0.7*torch.cos(3*clock)])
+X = torch.randn(N*T, 2)
+beta = torch.tensor([1.0, -0.4])
+y = X @ beta + paths[groups[unit_ids], time_ids] + 0.12*torch.randn(N*T)
+features = paths[groups] + 0.08*torch.randn(N, T)
+fit = KNNGroupedFixedEffects(n_groups=G, n_neighbors=4, kmeans_niter=60,
+                             use_flash_kmeans=False, seed=4, device="cpu")
+fit.fit(X, y, unit_ids, time_ids, classification_features=features,
+        classification_unit_ids=torch.arange(N))
+pd.DataFrame({"Truth": beta.numpy(), "Estimate": fit.params["coef"].numpy()},
+             index=["x1", "x2"]).round(4)
+```
+
+`classification_unit_ids` explicitly aligns auxiliary rows with panel unit
+IDs. It avoids relying on accidental input order. If omitted, follow the
+ordering contract in the API documentation. The panel feature builder expects
+a complete unit-time grid; duplicate cells are averaged and missing cells are
+rejected, rather than imputed silently.
+
+```{python}
+#| label: fig-grouped-paths
+#| fig-cap: "Estimated clusters summarized by their auxiliary measurement paths. Cluster numbers are arbitrary labels."
+fig, ax = plt.subplots()
+for g in range(G):
+    selected = fit.group_ids_ == g
+    ax.plot(np.arange(T), features[selected].mean(dim=0).numpy(), "o-", label=f"Cluster {g}")
+ax.set(xlabel="Time", ylabel="Mean auxiliary feature"); ax.legend(); plt.show()
+print("Group sizes:", torch.bincount(fit.group_ids_).tolist())
+```
+
+## Design decisions and inference
+
+The neighbor count controls smoothing, while the number of clusters controls
+the discreteness approximation. Standardizing embeddings changes what
+Euclidean closeness means. Large-scale searches are chunked; optional
+`flash-kmeans` acceleration is not required by the example and may have
+additional hardware/dependency requirements.
+
+Using outcomes to form groups is not automatically invalid, but inference
+must account for estimated classification and the relevant asymptotic
+regime. The final absorbed-regression covariance is conditional on the
+estimated grouping; it is not a general post-clustering uncertainty guarantee.
+For an evaluation study, keep validation outcomes out of classification and
+compare against simpler additive FE and prespecified groups.
+
+`predict(X)` returns the slope component, not arbitrary new-unit group effects.
+Group labels can permute across runs without changing the partition; compare
+co-membership or fitted paths rather than label integers.
+
+**API:** [KNNGroupedFixedEffects](../reference/KNNGroupedFixedEffects.qmd),
+[build_panel_embeddings](../reference/build_panel_embeddings.qmd),
+[chunked_knn_indices](../reference/grouped_fe.chunked_knn_indices.qmd).

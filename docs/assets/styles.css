@@ -1,0 +1,16 @@
+main { line-height: 1.7; }
+.lead { font-size: 1.2rem; max-width: 52rem; }
+.method-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,260px),1fr)); gap: 1rem; margin: 1.5rem 0; }
+.method-card { border: 1px solid #7b939744; border-radius: 9px; padding: 1.25rem; }
+.method-card h3 { margin-top: 0; }
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: .35rem 0; }
+.cell-output-display { max-width: 100%; overflow-x: auto; }
+.cell-output-display img, figure img { max-width: 100%; height: auto; }
+pre, .sourceCode { max-width: 100%; }
+.table { font-size: .93rem; }
+.quarto-table-container { overflow-x: auto; }
+table { display: block; max-width: 100%; overflow-x: auto; }
+.doc-signature { overflow-wrap: anywhere; }
+body.quarto-dark main a, body.quarto-dark .sidebar a { color: #79ced6; }
+body.quarto-dark main code { color: #ef94b7; }
+@media(max-width:600px) { h1 { font-size: 1.85rem; } .lead { font-size: 1.06rem; } main { overflow-wrap: anywhere; } }

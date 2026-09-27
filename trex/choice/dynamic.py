@@ -606,6 +606,23 @@ class DynamicChoiceModel(ChoiceModel):
         return paths, actions
 
     def simulate(self, initial_states, n_periods, rng=None):
+        """Simulate paths under fitted utility and transition probabilities.
+
+        Parameters
+        ----------
+        initial_states : tensor of shape (n_individuals,)
+            Integer state indices at the start of the simulation.
+        n_periods : int
+            Number of decisions per individual.
+        rng : torch.Generator, optional
+            Random generator matching the model's device; not a NumPy RNG.
+
+        Returns
+        -------
+        tuple of torch.Tensor
+            State paths with shape (n_individuals, n_periods + 1) and action
+            paths with shape (n_individuals, n_periods).
+        """
         values = self.solve_value_functions(
             self._flow_utility(self._get_coef_params()), tol=self.tol
         )

@@ -12,31 +12,72 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - uses: astral-sh/setup-uv@v4
-      - name: Build docs
-        run: >
-          uv run
-          --with pdoc
-          --with numpy
-          --with pandas
-          --with scipy
-          python docs/generate_api_docs.py docs/api
+          cache: pip
+      - uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: "1.8.27"
+      - name: Install CPU Torch and documentation dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -e '.[docs]'
+      - name: Generate API, execute vignettes, render and verify
+        run: python docs/build.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install browser checks
+        run: |
+          npm install --prefix "$RUNNER_TEMP/trex-browser" --no-save playwright@1.58.2
+          "$RUNNER_TEMP/trex-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Check desktop/mobile layout, KaTeX, search and navigation
+        env:
+          TREX_PLAYWRIGHT_MODULE: ${{ runner.temp }}/trex-browser/node_modules/playwright
+        run: node docs/check_browser.cjs
+      - name: Save verified site
+        uses: actions/upload-artifact@v4
+        with:
+          name: quarto-docs
+          path: docs/_site/
+          include-hidden-files: true
+          retention-days: 7
+
+  publish:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: quarto-docs
+          path: docs/_site/
+      - name: Commit rendered site to gh-pages
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          python docs/publish.py
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/api
+          path: docs/_site/
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build
+    needs: publish
     runs-on: ubuntu-latest
     permissions:
       pages: write

@@ -1,0 +1,205 @@
+project:
+  type: website
+  output-dir: _site
+  execute-dir: project
+  render:
+    - index.qmd
+    - start/*.qmd
+    - guides/*.qmd
+    - reference/*.qmd
+    - contributing.qmd
+    - references.qmd
+  resources:
+    - assets/
+    - llms.txt
+    - build-info.json
+
+website:
+  title: Trex
+  description: Econometric estimation, structural choice and generative models in PyTorch.
+  site-url: https://apoorvalal.github.io/trex/
+  repo-url: https://github.com/apoorvalal/trex
+  repo-subdir: docs
+  repo-actions: [edit, issue]
+  page-navigation: true
+  search:
+    type: overlay
+  navbar:
+    logo: assets/trex.svg
+    left:
+      - text: Get started
+        href: start/installation.qmd
+      - text: Methods & examples
+        href: start/choosing.qmd
+      - text: API reference
+        href: reference/index.qmd
+    right:
+      - icon: github
+        href: https://github.com/apoorvalal/trex
+        aria-label: GitHub repository
+  sidebar:
+    style: docked
+    collapse-level: 1
+    contents:
+      - index.qmd
+      - section: Getting started
+        contents:
+          - start/installation.qmd
+          - start/quickstart.qmd
+          - start/choosing.qmd
+          - start/numerics.qmd
+      - section: Regression & moments
+        contents:
+          - guides/linear-regression.qmd
+          - guides/likelihood-glms.qmd
+          - guides/gmm.qmd
+          - guides/gel.qmd
+          - guides/conditional-moments.qmd
+          - guides/score-matching.qmd
+      - section: Discrete choice
+        contents:
+          - guides/static-choice.qmd
+          - guides/dynamic-choice.qmd
+      - section: Panel models
+        contents:
+          - guides/synthetic-did.qmd
+          - guides/matrix-completion.qmd
+          - guides/latent-factors.qmd
+          - guides/grouped-effects.qmd
+      - section: Simulation
+        contents:
+          - guides/generative-models.qmd
+          - guides/llm-generators.qmd
+      - reference/index.qmd
+      - references.qmd
+      - contributing.qmd
+  page-footer:
+    left: "Trex · Econometrics in PyTorch"
+    right:
+      - text: Source & license
+        href: https://github.com/apoorvalal/trex
+
+format:
+  html:
+    theme:
+      light: [cosmo, assets/theme.scss]
+      dark: [darkly, assets/theme.scss]
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-summary: Show Python
+    code-copy: true
+    code-overflow: wrap
+    html-math-method: katex
+    css: [assets/styles.css, reference/_styles-quartodoc.css]
+    smooth-scroll: true
+    anchor-sections: true
+    link-external-newwindow: true
+    fig-format: svg
+    fig-width: 8
+    fig-height: 4.5
+    embed-resources: false
+
+execute:
+  freeze: false
+  cache: false
+  warning: false
+  error: false
+  daemon: false
+jupyter: python3
+
+quartodoc:
+  package: trex
+  dir: reference
+  title: API reference
+  parser: numpy
+  css: reference/_styles-quartodoc.css
+  options:
+    include_inherited: true
+    include_empty: true
+  sections:
+    - title: Regression and estimation interfaces
+      desc: Least squares, likelihood and fixed-effect operations.
+      contents:
+        - BaseEstimator
+        - LinearRegression
+        - MaximumLikelihoodEstimator
+        - LogisticRegression
+        - PoissonRegression
+        - demean_torch
+        - prepare_fixed_effects
+        - demean.fixed_effect_rank
+    - title: Unconditional moments
+      desc: GMM backends, GEL and their criterion functions.
+      contents:
+        - gmm.GMMEstimator
+        - gmm.gmm.GMMEstimatorScipy
+        - gmm.gmm.GMMEstimatorTorch
+        - gmm.gmm.moment_covariance
+        - gmm.GELEstimator
+        - gmm.rho_el
+        - gmm.rho_exponential
+        - gmm.rho_cue
+    - title: Conditional moments and scores
+      contents:
+        - MaximumMomentRestriction
+        - SieveMinimumDistance
+        - cmr.ConditionalMomentEstimator
+        - cmr.rbf_kernel
+        - cmr.mmr_loss
+        - cmr.hsic
+        - cmr.polynomial_sieve
+        - cmr.median_bandwidth
+        - cmr.squared_distance
+        - AntitonicScore
+        - AntitonicScoreMatchingRegression
+        - estimate_antitonic_score
+    - title: Static and dynamic choice
+      contents:
+        - choice.base.ChoiceModel
+        - choice.BinaryLogit
+        - choice.BinaryProbit
+        - choice.MultinomialLogit
+        - choice.LowRankLogit
+        - choice.DynamicChoiceData
+        - choice.DynamicChoiceModel
+        - choice.RustNFP
+        - choice.HotzMillerCCP
+        - choice.LinearFlowUtility
+        - choice.ReplacementUtility
+        - choice.estimate_transition_matrix
+        - choice.discretize_state
+        - choice.DeepValueFunction
+        - choice.estimate_ccps
+    - title: Panel estimators and latent heterogeneity
+      contents:
+        - NuclearNormMatrixCompletion
+        - panel.MatrixCompletionResult
+        - SyntheticDID
+        - panel.SyntheticDIDResult
+        - did_estimate
+        - sc_estimate
+        - matrix_completion_estimate
+        - synthdid_estimate
+        - panel_estimates
+        - panel.matrix_completion_lambda_max
+        - panel.simplex_least_squares_fw
+        - panel.collapsed_form
+        - panel.frank_wolfe_step
+        - LatentFactorGLM
+        - KNNGroupedFixedEffects
+        - grouped_fe.GroupedFEResult
+        - build_panel_embeddings
+        - grouped_fe.chunked_knn_indices
+        - grouped_fe.smooth_embeddings_by_knn
+        - grouped_fe.cluster_embeddings
+    - title: Simulation, preprocessing and diagnostics
+      contents:
+        - TabularTransformer
+        - TabularWGAN
+        - TabularPTGAN
+        - TabularDiffusion
+        - distribution_metrics
+        - sliced_wasserstein_distance
+        - SafetensorsLLMInContextGenerator
+        - SafetensorsQLORAGenerator

@@ -1,0 +1,55 @@
+---
+title: A complete first fit
+---
+
+This example estimates a linear conditional mean, inspects uncertainty and evaluates predictions on observations excluded from fitting. It introduces the explicit design matrices and result containers used throughout the library.
+
+## Data and target
+
+Let $y_i=0.5+1.4x_{i1}-0.8x_{i2}+\epsilon_i$, with mean-zero noise independent of the regressors. The slopes describe conditional associations here; a causal interpretation would require a substantive exogeneity argument.
+
+```{python}
+import numpy as np
+import pandas as pd
+import torch
+from trex import LinearRegression
+
+torch.set_num_threads(2)
+rng = np.random.default_rng(42)
+X = np.column_stack([np.ones(600), rng.normal(size=(600, 2))])
+truth = np.array([0.5, 1.4, -0.8])
+y = X @ truth + (0.3 + 0.2 * np.abs(X[:, 1])) * rng.normal(size=600)
+train, test = np.arange(450), np.arange(450, 600)
+model = LinearRegression(device="cpu").fit(X[train], y[train], se="HC1")
+pd.DataFrame({"term": ["intercept", "x1", "x2"], "truth": truth,
+              "estimate": model.params["coef"].numpy(),
+              "HC1 SE": model.params["se"].numpy()}).round(4)
+```
+
+Trex does **not** add an intercept to `LinearRegression`; the first column above supplies it. HC1 permits heteroskedastic errors under independent sampling. It is not cluster-robust inference for dependent panel rows.
+
+## Predictions and diagnostics
+
+```{python}
+predicted = model.predict(X[test]).numpy()
+print({"test_RMSE": float(np.sqrt(np.mean((y[test] - predicted)**2))),
+       "coefficient_covariance_shape": tuple(model.params["vcov"].shape)})
+assert np.isfinite(predicted).all()
+```
+
+```{python}
+#| fig-cap: "Held-out outcomes and predicted conditional means. Noise prevents perfect outcome prediction even when the mean model is correct."
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots()
+ax.scatter(predicted, y[test], alpha=.5, s=18)
+lo, hi = min(predicted.min(), y[test].min()), max(predicted.max(), y[test].max())
+ax.plot([lo, hi], [lo, hi], color="black", linestyle="--")
+ax.set(xlabel="Predicted mean", ylabel="Observed outcome")
+plt.show()
+```
+
+## Read results explicitly
+
+Most regression and choice models store coefficients and standard errors in `params`. GMM instead exposes `theta_` and `covariance_`; GEL uses `est` and `Sigma`; panel estimators expose `result_`. The [selection guide](choosing.qmd) and individual examples show these differences rather than implying a uniform scikit-learn interface.
+
+Continue with [weights and fixed effects](../guides/linear-regression.qmd), [likelihoods](../guides/likelihood-glms.qmd), or [IV moments](../guides/gmm.qmd). The [API reference](../reference/LinearRegression.qmd) lists the exact options.

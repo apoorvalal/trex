@@ -1,0 +1,86 @@
+---
+title: Weighted regression and fixed effects
+---
+
+## Why absorb effects?
+
+Panel regressions often have a small number of slopes and many nuisance intercepts. In
+
+$$
+y_{it}=x_{it}'\beta+\alpha_i+\gamma_t+\epsilon_{it},
+$$
+
+the slope is identified by variation left after projecting out unit and time effects. Explicitly constructing thousands of indicator columns is usually unnecessary. Trex uses weighted alternating projections to residualize all design columns and the outcome together, then solves a least-squares problem.
+
+For strictly positive analytic weights $W=\operatorname{diag}(w_i)$, write $\widetilde X$ and $\widetilde y$ for weighted within-transformations. The estimate solves
+
+$$
+\hat\beta=\arg\min_\beta\|W^{1/2}(\widetilde y-\widetilde X\beta)\|_2^2.
+$$
+
+Alternating demeaning converges to the joint weighted projection; one subtraction of unit means and time means need not suffice in an unbalanced or unequally weighted panel. A failure to converge raises an error.
+
+## A weighted two-way panel
+
+The simulation correlates a regressor with unit effects and makes noise variance depend on that regressor. Inverse-variance weights are known here because this is a controlled example. In real data, weights require their own justification.
+
+```{python}
+import numpy as np
+import pandas as pd
+import torch
+from trex import LinearRegression
+
+torch.set_num_threads(2)
+rng = np.random.default_rng(114)
+N, T = 45, 12
+unit = np.repeat(np.arange(N), T)
+time = np.tile(np.arange(T), N)
+a, g = rng.normal(size=N), rng.normal(scale=.4, size=T)
+x1 = .8 * a[unit] + rng.normal(size=N*T)
+x2 = rng.normal(size=N*T)
+X = np.column_stack([x1, x2])
+sigma = .25 + .2 * np.abs(x1)
+y = X @ np.array([1.2, -.6]) + a[unit] + g[time] + sigma*rng.normal(size=N*T)
+weights = 1 / sigma**2
+pooled = LinearRegression(device="cpu").fit(
+    np.column_stack([np.ones(N*T), X]), y, weights=weights, se="HC1")
+within = LinearRegression(device="cpu").fit(
+    X, y, weights=weights, fe=[unit, time], se="HC1")
+pd.DataFrame({"truth": [1.2, -.6],
+              "pooled WLS": pooled.params["coef"].numpy()[1:],
+              "two-way FE": within.params["coef"].numpy(),
+              "FE HC1 SE": within.params["se"].numpy()}, index=["x1", "x2"]).round(4)
+```
+
+The comparison illustrates omitted heterogeneity, not a rule that FE always improves an estimate. FE does not solve time-varying confounding, reverse causality or measurement error.
+
+## What the uncertainty calculation uses
+
+Set $A=W^{1/2}\widetilde X$ and $r=\widetilde y-\widetilde X\hat\beta$. The supported covariances are
+
+$$
+\widehat V_{\rm classical}=(A'A)^{-1}\frac{r'Wr}{n-k},
+\qquad
+\widehat V_{\rm HC0}=(A'A)^{-1}
+\left(\sum_i w_i^2\widetilde x_i\widetilde x_i'r_i^2\right)(A'A)^{-1},
+$$
+
+with $\widehat V_{\rm HC1}=n\widehat V_{\rm HC0}/(n-k)$. Here $k$ counts retained slope columns **and the rank of absorbed effects**. In a connected two-way panel, absorbed rank is $N+T-1$; disconnected support changes that count. For large three-or-more-way designs, supply `df_absorbed` when the exact-rank calculation exceeds the implementation's level-space bound.
+
+```{python}
+print({"residual_df": within.df_resid_,
+       "training_RMSE": float(np.sqrt(np.mean(within.residuals_.numpy()**2))),
+       "slope_only_prediction": within.predict(X[:3]).numpy().round(3).tolist(),
+       "full_training_fit": within.fitted_values_[:3].numpy().round(3).tolist()})
+assert np.isfinite(within.params["vcov"].numpy()).all()
+```
+
+## Interpretation and boundaries
+
+- `predict(X)` returns **only** $X\hat\beta$. `fitted_values_` includes the estimated effects on the training rows. There is no new-level FE prediction interface in this class.
+- An intercept absorbed by FE retains a zero coefficient slot; zero does not mean the population intercept was estimated as zero.
+- `weights` are positive WLS/analytic weights, not replicated-observation frequency counts. Filter zero-weight rows explicitly.
+- Current choices are `None`, `classical`, `HC0`, and `HC1`. Repeated panel rows often need clustered inference, which is not implemented here.
+- A regressor with no within variation cannot identify a slope. Trex drops absorbed columns and rejects remaining rank deficiency.
+
+**API:** [LinearRegression](../reference/LinearRegression.qmd), [demean_torch](../reference/demean_torch.qmd), [prepare_fixed_effects](../reference/prepare_fixed_effects.qmd). **Background:** the Frisch–Waugh–Lovell projection argument and weighted least squares; see [reading list](../references.qmd).

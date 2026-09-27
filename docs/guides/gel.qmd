@@ -1,0 +1,59 @@
+---
+title: Generalized empirical likelihood
+---
+
+## Why tilt empirical moments?
+
+GMM assigns a quadratic cost to violations of average moments. Generalized empirical likelihood instead introduces a multiplier vector that tilts the empirical distribution. For moments $g_i(\theta)$ and a concave generating function $\rho$, the profiled criterion can be written
+
+$$
+\hat\theta=\arg\min_\theta\sup_\lambda
+\frac1n\sum_i\rho\bigl(\lambda'g_i(\theta)\bigr).
+$$
+
+Trex implements empirical likelihood $\rho(v)=\log(1-v)$, exponential tilting $\rho(v)=1-e^v$, and a quadratic/CUE-style form $\rho(v)=-v-v^2/2$. Additive constants do not affect the minimizer. The inner optimization, its domain and the outer parameter fit are distinct numerical problems.
+
+Under valid, well-identified moments, these methods share first-order efficient GMM behavior. Their finite-sample and misspecification properties can differ. Changing the tilt is not a remedy for a false identifying restriction.
+
+## An overidentified mean
+
+Suppose both $E[Y-\theta]=0$ and $E[(Y-\theta)^2-1]=0$. The second restriction assumes a known variance of one, so there are two moments for one parameter. In this simulation that assumption is true by construction.
+
+```{python}
+import numpy as np
+import pandas as pd
+from trex.gmm import GELEstimator, rho_el, rho_exponential, rho_cue
+
+rng = np.random.default_rng(817)
+y = rng.normal(loc=.7, scale=1, size=500)
+
+def moments(data, theta):
+    r = data - theta[0]
+    return np.column_stack([r, r*r-1])
+
+rows = []
+for name, rho in [("EL", rho_el), ("ET", rho_exponential), ("CUE-style", rho_cue)]:
+    fit = GELEstimator(moments, rho=rho).fit(y, startval=np.array([y.mean()]))
+    rows.append({"method": name, "estimate": fit.est[0], "SE": fit.se[0],
+                 "J statistic": fit.J_stat, "J p-value": fit.J_pvalue})
+pd.DataFrame(rows).round(5)
+```
+
+The code uses NumPy/SciPy, not GPU optimization. The differences in the resulting estimates come from empirical weighting, not different input samples. A large overidentification p-value does not prove both restrictions true or rule out weak identification.
+
+## Domain and covariance
+
+For empirical likelihood, each $\lambda'g_i$ must stay below one. Clipping arguments into this domain would change the optimization problem; Trex instead uses a feasibility-preserving line search. Exponential tilting can be numerically difficult for extreme moments. Failure to find a finite feasible optimum is reported rather than replaced by a fabricated estimate.
+
+Let $G$ be the Jacobian of average moments and $\Omega=E[g_i g_i']$. The implemented correctly specified first-order covariance is
+
+$$
+\widehat{\operatorname{Var}}(\hat\theta)
+=\frac1n(G'\widehat\Omega^{-1}G)^{-1}.
+$$
+
+It has parameter dimension $p\times p$, not moment dimension $q\times q$. Trex stores it as `Sigma`, with `se` its marginal standard errors. `est` holds coefficients and `lam_hat` the final multiplier vector. This calculation is not misspecification-robust GEL inference, nor necessarily the same finite-sample reweighted covariance returned by another package.
+
+In just-identified problems, a root of the sample moments often makes the methods coincide; overidentification creates scope for their empirical weighting to matter. In applied work, compare moment definitions and normalization before attributing a discrepancy to an optimizer.
+
+**API:** [GELEstimator](../reference/gmm.GELEstimator.qmd), [EL](../reference/gmm.rho_el.qmd), [ET](../reference/gmm.rho_exponential.qmd), [CUE-style tilt](../reference/gmm.rho_cue.qmd). **Background:** Newey and Smith (2004); see [references](../references.qmd).

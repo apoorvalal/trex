@@ -38,3 +38,10 @@ tmp/*
 .beads/*
 *.html
 uv.lock
+docs/_site/
+docs/.quarto/
+docs/_freeze/
+docs/reference/
+docs/objects.json
+docs/build-info.json
+docs/**/*_files/

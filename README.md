@@ -25,11 +25,11 @@ High-performance econometric estimation using PyTorch with first-class GPU suppo
 
 ### Technical Capabilities
 - **Automatic GPU Detection**: Seamless CPU/GPU operation with device management
-- **Heteroskedasticity-Robust Inference**: HC0-HC3 standard errors for cross-sectional data
-- **HAC-Robust Inference**: Newey-West covariance estimation for time series
+- **Heteroskedasticity-Robust Inference**: HC0/HC1 in linear regression
+- **HAC-Robust Inference**: Newey-West covariance in GMM
 - **Custom Optimizers**: Full access to PyTorch optimizer ecosystem (LBFGS, Adam, SGD)
 - **Batched Operations**: Memory-efficient estimation for large datasets
-- **M-Series Mac Support**: Native MPS backend support (no JAX Metal issues)
+- **Mac Support**: CPU execution; float64 methods are not compatible with MPS
 
 ## Installation
 
@@ -41,16 +41,27 @@ source .venv/bin/activate
 uv sync
 ```
 
-## API Documentation
+## Documentation
 
-Generate API docs from docstrings with `pdoc`:
+**[Documentation website](https://apoorvalal.github.io/trex/)** — installation,
+method selection, mathematical guides, executable estimator vignettes and a
+source-generated API reference.
+
+The guides cover weighted/fixed-effects regression, GLMs, GMM/GEL, conditional
+moments, score matching, static/dynamic choice, synthetic DID, matrix
+completion, latent/grouped effects, and tabular generators. Examples show
+diagnostics and identify the available inference and model limitations.
+
+With Quarto 1.8.27 installed, build from the Python environment containing Torch:
 
 ```bash
-uv sync --extra docs
-bash docs/build_api_docs.sh
+python -m pip install -e '.[docs]'
+python docs/build.py
 ```
 
-The rendered site is written to `docs/api/` by default.
+Source is in `docs/` on `main`; the verified rendered site is published to
+`gh-pages` and deployed by GitHub Actions after changes to `main`.
+See [the documentation workflow](docs/README.md).
 
 ## Quick Start
 
@@ -252,7 +263,9 @@ print(f"Market share change: {results['market_share_change'][50]:.3f}")
 
 ## GPU Usage
 
-All estimators automatically detect and use CUDA/MPS when available:
+Base estimators choose CUDA when available, otherwise CPU. Some algorithms
+use NumPy/SciPy on the CPU; float64 paths are incompatible with Apple MPS.
+See the [device guide](https://apoorvalal.github.io/trex/start/numerics.html).
 
 ```python
 # Automatic device detection
@@ -361,8 +374,8 @@ trex is a PyTorch port of jaxonometrics with enhanced device management:
 | Feature | jaxonometrics | trex |
 |---------|---------------|-----------------|
 | Backend | JAX | PyTorch |
-| M-Series Mac | Metal issues | Native MPS support |
-| GPU Support | CUDA/TPU | CUDA/MPS/CPU |
+| M-Series Mac | Backend-dependent | CPU supported; float64 excludes MPS |
+| GPU Support | Backend-dependent | CUDA for supported Torch paths |
 | Auto-diff | `jax.grad` | `torch.autograd` |
 | Compilation | `jax.jit` | `torch.compile` |
 | Device Management | Manual | Automatic with `.to()` |

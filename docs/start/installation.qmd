@@ -1,0 +1,56 @@
+---
+title: Installation and reproducibility
+---
+
+## Install the research library
+
+Trex is distributed from [apoorvalal/trex](https://github.com/apoorvalal/trex). **Do not run `pip install trex`: that PyPI name is an unrelated project.** Python 3.10 or later is required.
+
+Choose an environment with the appropriate [PyTorch build](https://pytorch.org/get-started/locally/) for your CPU or accelerator first. Then install this repository:
+
+```bash
+git clone https://github.com/apoorvalal/trex.git
+cd trex
+python -m pip install -e .
+```
+
+The editable installation is convenient when modifying methods or running the included notebooks. A non-editable installation needs no permanent checkout:
+
+```bash
+python -m pip install "git+https://github.com/apoorvalal/trex.git"
+```
+
+For a reproducible experiment, replace the moving branch with a full commit hash. For example, the correctness-update snapshot is:
+
+```bash
+python -m pip install "git+https://github.com/apoorvalal/trex.git@98df3cb7880df8c2b61ed0594c43c96e16bee93f"
+```
+
+This pins Trex, **not its dependencies**. Record the Python, Torch, CUDA/driver (if used), NumPy and SciPy versions too. Current version metadata remains `0.1.0`, so a Git revision identifies development snapshots more precisely than that version string.
+
+## Runtime and optional dependencies
+
+The core installation includes Torch, NumPy, SciPy, pandas and `pytorch-minimize`. Many methods use Torch throughout; GEL and score estimation also use CPU-side numerical routines. Installing Trex does not turn every routine into a GPU kernel.
+
+```bash
+# Independent estimator references and tests
+python -m pip install -e '.[test]'
+
+# Quarto execution and API documentation tools
+python -m pip install -e '.[docs]'
+```
+
+The [Quarto CLI](https://quarto.org/docs/get-started/) is a separate installation. Large-model generation uses optional Transformers/PEFT/quantization tooling described in its [guide](../guides/llm-generators.qmd); those dependencies and model weights are not required for regression, choice or panel estimation.
+
+## Verify the environment
+
+```{python}
+import platform
+import torch
+import trex
+
+print({"python": platform.python_version(), "torch": torch.__version__,
+       "trex": trex.__version__, "cuda_available": torch.cuda.is_available()})
+```
+
+The executable guides use `device="cpu"` deliberately, so they do not require a GPU. This does not imply CPU and CUDA are equally fast or bitwise identical. See [numerical conventions](numerics.qmd) before moving a workload between devices.

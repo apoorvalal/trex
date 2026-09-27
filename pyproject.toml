@@ -50,15 +50,12 @@ dev = [
   "pre-commit",
 ]
 docs = [
-  "pdoc>=15.0.0",
-  "pandas>=2.0.0",
-  "pyarrow>=18.0.0",
-  "scipy>=1.10.0",
-  "sphinx",
-  "sphinx-rtd-theme",
-  "nbsphinx",
-  "jupyter",
-  "matplotlib>=3.10.8",
+  "quartodoc==0.11.1",
+  "griffe>=1.7,<2",  # Quartodoc 0.11 passes parser options removed in Griffe 2.
+  "ipykernel>=6.29",
+  "jupyter-cache>=1.0",
+  "PyYAML>=6.0",
+  "matplotlib>=3.9",
 ]
 test = [
   "pytest>=7.0",

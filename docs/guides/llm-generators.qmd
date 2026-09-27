@@ -1,0 +1,102 @@
+---
+title: "Optional local language-model generators"
+description: "In-context row generation and QLoRA adapters, with explicit dependency and evaluation boundaries."
+execute:
+  eval: false
+---
+
+## Two distinct operations
+
+Trex's optional wrappers turn numeric training rows into text and parse
+generated text back into numeric rows. `SafetensorsLLMInContextGenerator.fit`
+stores examples; it does **not** update model weights. `sample` loads a local
+or Hugging Face model/tokenizer, constructs few-shot prompts, generates text,
+and collects parseable rows.
+
+`SafetensorsQLORAGenerator` adds `fit_adapter`, which trains low-rank adapters
+on row-generation completions. For a frozen weight matrix $W$, LoRA uses
+$W+BA$ with a small inner dimension. QLoRA additionally loads the base in
+four-bit form while training the adapters at a higher compute precision.
+This reduces trainable state and memory, but does not make arbitrary models
+fit on any device.
+
+## Setup and example
+
+**The examples on this page are not executed by the documentation build.**
+They require an explicitly selected model, substantial model files and
+additional dependencies; the ordinary site build does not download weights
+or start adapter training. The core package imports these wrappers without
+eagerly importing Transformers or bitsandbytes.
+
+Install the optional libraries into the environment in which the chosen
+model runs:
+
+```bash
+python -m pip install transformers safetensors accelerate peft bitsandbytes
+```
+
+Availability of four-bit loading depends on the installed library versions
+and hardware. Use a supported CUDA environment for QLoRA; do not infer MPS or
+CPU compatibility from a generic `device` parameter.
+
+```python
+import numpy as np
+from trex import SafetensorsLLMInContextGenerator
+
+# A local model/tokenizer directory selected and downloaded separately.
+model_directory = "/path/to/your/model"
+training_rows = np.array([[24, 1, 12.5], [40, 0, 21.0], [33, 1, 17.2]])
+generator = SafetensorsLLMInContextGenerator(
+    model_path=model_directory, examples=3, rows_per_prompt=4,
+    max_new_tokens=256, max_attempts=10, temperature=0.7, device="cuda",
+).fit(training_rows, column_names=["age", "employed", "income"])
+synthetic_rows = generator.sample(12)
+```
+
+Those three rows illustrate the interface only; they are far too small a
+sample on which to learn or assess a joint distribution. Use real training,
+validation and held-out partitions in an application.
+
+```python
+from trex import SafetensorsQLORAGenerator
+
+adapted = SafetensorsQLORAGenerator(
+    model_path=model_directory, examples=3, load_in_4bit=True, device="cuda",
+).fit(training_rows, column_names=["age", "employed", "income"])
+adapted.fit_adapter(
+    output_dir="adapters/row-generator", num_train_epochs=1,
+    rows_per_completion=2, lora_r=16, lora_alpha=32,
+)
+synthetic_rows = adapted.sample(12)
+```
+
+## Text likelihood is not a tabular likelihood
+
+Tokenization, column order, numeric formatting and prompting all change the
+task seen by the language model. A probability for a sequence of tokens is
+not automatically a density for a continuous row. Parsing and rejection
+further change the distribution of returned samples. Record the model
+revision, tokenizer, prompt settings, sampling parameters, adapter and
+rejection behavior when comparing experiments.
+
+Enforce schema and support restrictions after generation, and distinguish
+invalid output from a valid but unusual observation. A successfully parsed
+row need not satisfy accounting identities or structural restrictions.
+Check duplication and proximity to training examples; generative modeling
+does not establish privacy or absence of memorization.
+
+## When is this useful?
+
+These wrappers make it possible to explore whether pretrained language-model
+representations help with a narrowly specified numeric simulation task. They
+are not the default recommendation for ordinary low-dimensional tabular data.
+Compare against empirical resampling, parametric baselines, mixtures, and
+[tabular GAN/diffusion models](generative-models.qmd), accounting for model
+loading and adaptation cost.
+
+HTTP serving, prompt experiments and llama.cpp endpoint orchestration are
+outside this package API. These classes use the Transformers/safetensors
+route directly.
+
+**API:** [SafetensorsLLMInContextGenerator](../reference/SafetensorsLLMInContextGenerator.qmd),
+[SafetensorsQLORAGenerator](../reference/SafetensorsQLORAGenerator.qmd).

@@ -1,0 +1,73 @@
+---
+title: Binary and count likelihoods
+---
+
+## Conditional means and likelihoods
+
+Binary and count outcomes require means in an appropriate range. Logistic regression uses $p_i=\operatorname{logit}^{-1}(x_i'\beta)$ and minimizes
+
+$$
+L(\beta)=\sum_i\left[\log(1+e^{x_i'\beta})-y_ix_i'\beta\right].
+$$
+
+Poisson regression uses $\mu_i=\exp(x_i'\beta+o_i)$, where $o_i$ is a known offset, and minimizes $\sum_i[\mu_i-y_i(x_i'\beta+o_i)]$ up to outcome-only constants. An exposure $e_i$ enters as $o_i=\log e_i$; it is not another coefficient to estimate.
+
+The coefficient of a continuous variable is a log-odds slope in logit and a log-mean slope in Poisson. It is not the same as an additive probability or count effect. For logit, $\partial p_i/\partial x_{ik}=p_i(1-p_i)\beta_k$.
+
+## Fit both models
+
+```{python}
+import numpy as np
+import pandas as pd
+import torch
+from trex import LogisticRegression, PoissonRegression
+
+torch.set_num_threads(2)
+rng = np.random.default_rng(31)
+n = 1200
+x = rng.normal(size=n)
+X = torch.tensor(np.column_stack([np.ones(n), x]), dtype=torch.float64)
+prob = 1 / (1 + np.exp(-(.2 + .9*x)))
+binary = torch.tensor(rng.binomial(1, prob), dtype=torch.float64)
+exposure = rng.uniform(.5, 2, n)
+offset = torch.tensor(np.log(exposure), dtype=torch.float64)
+counts = torch.tensor(rng.poisson(exposure*np.exp(-.1 + .4*x)), dtype=torch.float64)
+logit = LogisticRegression(device="cpu", maxiter=150, tol=1e-9).fit(X, binary)
+poisson = PoissonRegression(device="cpu", maxiter=150, tol=1e-9).fit(X, counts, offset=offset)
+pd.DataFrame({"logit truth": [.2, .9], "logit estimate": logit.params["coef"].numpy(),
+              "Poisson truth": [-.1, .4], "Poisson estimate": poisson.params["coef"].numpy()},
+             index=["intercept", "x"]).round(4)
+```
+
+```{python}
+#| fig-cap: "Estimated response curves. The Poisson curve uses unit exposure; it should not be compared to variable-exposure counts without adjustment."
+import matplotlib.pyplot as plt
+grid = torch.linspace(-3, 3, 150, dtype=torch.float64)
+Xg = torch.column_stack([torch.ones_like(grid), grid])
+fig, axes = plt.subplots(1, 2, figsize=(9, 3.8))
+axes[0].plot(grid, logit.predict_proba(Xg).detach(), label="Estimated")
+axes[0].plot(grid, torch.sigmoid(.2+.9*grid), "--", label="True")
+axes[0].set(xlabel="x", ylabel="Probability of success")
+axes[1].plot(grid, poisson.predict(Xg, offset=torch.zeros_like(grid)).detach(), label="Estimated")
+axes[1].plot(grid, torch.exp(-.1+.4*grid), "--", label="True")
+axes[1].set(xlabel="x", ylabel="Expected count (unit exposure)")
+for ax in axes: ax.legend()
+fig.tight_layout()
+plt.show()
+```
+
+`LogisticRegression.predict` returns a thresholded label; `predict_proba` returns the probability. `PoissonRegression.predict` returns the expected count, not a Poisson draw. Pass prediction-time offsets explicitly when exposure changes.
+
+## Additive effects and computational choices
+
+These two GLM classes support fixed-effect ID blocks through `fe`, sparse incidence designs through `fe_design`, and offsets. The linear index becomes $x_i'\beta+\sum_d\alpha^{(d)}_{g_d(i)}+o_i$. Prediction must supply the matching FE inputs; unseen levels do not have an estimated effect. This is a likelihood fit with nuisance effects, **not** ordinary linear demeaning followed by a GLM.
+
+The default optimizer is LBFGS. First-order optimizers can use `batch_size` for supported GLMs. `stderr=False` skips the information calculation when only fitting or prediction is desired. Sparse effects can reduce representation cost, but inference and nuisance blocks may still impose substantial memory costs.
+
+## Statistical qualifications
+
+Model-based information is $\sum_i p_i(1-p_i)x_ix_i'$ for ordinary logit and $\sum_i\mu_i x_ix_i'$ for ordinary Poisson. These are not general heteroskedasticity/cluster-robust covariance estimators. A correct Poisson mean can motivate a quasi-likelihood point estimate under non-Poisson variance, but its reported model-based SE then needs separate justification.
+
+Complete or quasi-complete separation can send binary-model coefficients toward infinity. Fixed effects with few observations per level introduce incidental-parameter concerns; no general bias correction is supplied. A large batch count or a small loss change does not resolve these statistical issues.
+
+For probit, multinomial outcomes and factorized assortment choice, continue to [static choice](static-choice.qmd). **API:** [LogisticRegression](../reference/LogisticRegression.qmd), [PoissonRegression](../reference/PoissonRegression.qmd), [MaximumLikelihoodEstimator](../reference/MaximumLikelihoodEstimator.qmd).

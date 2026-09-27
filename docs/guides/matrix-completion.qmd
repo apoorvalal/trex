@@ -1,0 +1,98 @@
+---
+title: "Nuclear-norm matrix completion"
+description: "Recover a low-rank panel surface using only observed cells."
+---
+
+## A model for an incomplete outcome surface
+
+Write $Y_{it}=a_i+b_t+L_{it}+\varepsilon_{it}$, where $L$ is approximately
+low rank. Shared latent factors allow observed cells to inform missing cells.
+Instead of choosing a rank and fitting factors directly, nuclear-norm
+regularization shrinks singular values:
+
+$$
+\min_{a,b,L}\frac{1}{|\Omega|}\sum_{(i,t)\in\Omega}
+(Y_{it}-a_i-b_t-L_{it})^2+\lambda_L\|L\|_*.
+$$
+
+Here $\Omega$ is the training set and $\|L\|_*$ is the sum of singular
+values. Trex alternates additive-effect updates with singular-value
+thresholding. An explicit `lambda_L` controls the penalty; otherwise
+`lambda_fraction` scales a data-dependent maximum-penalty reference.
+
+The mask uses **True for observed/training cells**. False cells do not
+contribute to the objective. A zero outcome is a value, not a missing-data
+marker. Low-rank imputation still requires informative observation patterns;
+entirely unsupported rows, columns or disconnected blocks are not rescued by
+calling a solver.
+
+## Worked example: randomly held-out cells
+
+```{python}
+import numpy as np
+import pandas as pd
+import torch
+import matplotlib.pyplot as plt
+from trex import NuclearNormMatrixCompletion
+
+torch.set_num_threads(1)
+torch.manual_seed(610)
+N, T = 40, 30
+A = torch.randn(N, 2, dtype=torch.float64)
+B = torch.randn(T, 2, dtype=torch.float64)
+mean = A @ B.T + torch.randn(N, 1, dtype=torch.float64) + torch.randn(1, T, dtype=torch.float64)
+Y = mean + 0.12*torch.randn_like(mean)
+mask = torch.rand(N, T) < 0.75
+fit = NuclearNormMatrixCompletion(lambda_fraction=0.035, maxiter=400,
+                                  tol=1e-7, device="cpu").fit(Y, mask=mask)
+pred = fit.predict()
+pd.DataFrame({"Cells": [int(mask.sum()), int((~mask).sum())],
+              "RMSE against noisy Y": [float(((pred[mask]-Y[mask])**2).mean().sqrt()),
+                                        float(((pred[~mask]-Y[~mask])**2).mean().sqrt())]},
+             index=["Training", "Held out"]).round(4)
+```
+
+```{python}
+#| label: fig-matrix-completion
+#| fig-cap: "Missing training cells and the recovered surface. The truth panel is available only because this is a simulation."
+visible = Y.numpy().copy()
+visible[~mask.numpy()] = np.nan
+fig, axes = plt.subplots(1, 3, figsize=(10, 3.6), sharex=True, sharey=True)
+for ax, image, title in zip(axes, [mean.numpy(), visible, pred.numpy()],
+                            ["Latent truth", "Observed cells", "Completed surface"]):
+    ax.imshow(image, aspect="auto", cmap="RdBu_r", vmin=-5, vmax=5)
+    ax.set(title=title, xlabel="Time")
+axes[0].set_ylabel("Unit"); fig.tight_layout(); plt.show()
+```
+
+## From prediction to a treatment effect
+
+The helper `matrix_completion_estimate(Y, N0, T0)` excludes the entire treated
+post-treatment block, fits untreated outcomes, and averages
+$Y_{it}-\widehat Y_{it}(0)$ over that block. It returns the effect and fitted
+model. This prevents direct use of treated outcomes in training, but does not
+establish that their untreated counterfactual is identified.
+
+Randomly holding out cells, as above, tests interpolation under a different
+missingness pattern from withholding a final treated block. For causal work,
+use block-aware validation and justify why those validation tasks transport
+to the intervention. An outcome-dependent observation process can also
+invalidate standard matrix-completion reasoning.
+
+## Practical choices
+
+- Tune the penalty using a separate validation mask, then report final test
+  error once. The fixed penalty above is an illustration, not a tuned result.
+- Inspect singular values, convergence history and residual structure. A
+  tiny training error with poor held-out error signals excessive flexibility.
+- Choose whether unit and time effects belong in the model. They are
+  unpenalized nuisance components here, distinct from the low-rank term.
+- The current estimator does not supply treatment-effect standard errors.
+  Serial dependence and estimated factors need an explicit inferential plan.
+
+For covariates and non-Gaussian outcomes with an explicit rank constraint, see
+[latent-factor GLMs](latent-factors.qmd).
+
+**API:** [NuclearNormMatrixCompletion](../reference/NuclearNormMatrixCompletion.qmd),
+[MatrixCompletionResult](../reference/panel.MatrixCompletionResult.qmd),
+[matrix_completion_estimate](../reference/matrix_completion_estimate.qmd).

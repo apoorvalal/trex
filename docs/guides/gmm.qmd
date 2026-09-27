@@ -1,0 +1,83 @@
+---
+title: Instrumental variables and GMM
+---
+
+## From restrictions to an estimator
+
+Suppose a structural residual $u_i(\theta)$ satisfies $E[z_i u_i(\theta_0)]=0$ even though a regressor is correlated with the residual. Define the observation-level vector $g_i(\theta)=z_i u_i(\theta)$ and minimize
+
+$$
+Q_n(\theta)=\bar g_n(\theta)'W\bar g_n(\theta),\qquad
+\bar g_n(\theta)=\frac1n\sum_i g_i(\theta).
+$$
+
+The weighting matrix decides how competing sample restrictions are reconciled. Identity weighting is simple; efficient two-step GMM estimates a moment covariance at a preliminary fit and then uses its inverse. Neither weighting choice can repair invalid instruments or weak identification.
+
+Trex takes a callback `moment_cond(z, y, x, theta)` returning **one row per observation**, shape `(n, q)`. Do not return only the average: observation-level moments are needed for covariance estimation.
+
+## Endogenous regressor example
+
+```{python}
+import numpy as np
+import pandas as pd
+import torch
+from trex import LinearRegression
+from trex.gmm import GMMEstimator
+
+torch.set_num_threads(2)
+rng = np.random.default_rng(807)
+n = 1600
+z = rng.normal(size=(n, 2))
+v, e = rng.normal(size=(2, n))
+x = .9*z[:, 0] + .5*z[:, 1] + v
+y = .4 + 1.6*x + .8*v + e
+X = np.column_stack([np.ones(n), x])
+Z = np.column_stack([np.ones(n), z])
+
+def iv_moments(z, y, x, theta):
+    return z * (y - x @ theta)[:, None]
+
+fits = {backend: GMMEstimator(iv_moments, backend=backend,
+            weighting_matrix="optimal", device="cpu").fit(Z, y, X)
+        for backend in ["scipy", "torch"]}
+ols = LinearRegression(device="cpu").fit(X, y)
+pd.DataFrame({"truth": [.4, 1.6], "OLS": ols.params["coef"].numpy(),
+              "GMM / SciPy": fits["scipy"].theta_,
+              "GMM / Torch": fits["torch"].theta_,
+              "GMM SE": fits["torch"].std_errors_}, index=["intercept", "slope"]).round(4)
+```
+
+OLS absorbs the correlation induced by $v$; the instruments exclude that component. Both backends target the same sample criterion. SciPy uses numerical derivatives, while the Torch backend differentiates the actual callback. For Torch callbacks, avoid converting intermediate quantities to NumPy or detaching them from the parameter graph.
+
+## Weighting, dependence and inference
+
+With $G=\partial\bar g_n(\theta)/\partial\theta'$ and a consistent long-run covariance $\widehat\Omega$, the reported covariance is
+
+$$
+\widehat V=\frac1n(G'WG)^{-1}G'W\widehat\Omega WG(G'WG)^{-1}.
+$$
+
+Under independent sampling, Trex uses the **uncentered** second product $n^{-1}\sum_i g_i g_i'$ (HC0 convention). With ordered, weakly dependent observations, `iid=False` uses Bartlett/Newey–West accumulation for both optimal weights and final inference:
+
+$$
+\widehat\Omega=\widehat\Gamma_0+
+\sum_{\ell=1}^{L}\left(1-\frac{\ell}{L+1}\right)
+(\widehat\Gamma_\ell+\widehat\Gamma_\ell'),\quad
+\widehat\Gamma_\ell=\frac1n\sum_{i=\ell+1}^n g_i g_{i-\ell}'.
+$$
+
+Set `max_lags` explicitly when a particular bandwidth is part of the design. Reordering the rows changes this calculation. HAC is not a substitute for an arbitrary cluster structure.
+
+```{python}
+m = fits["torch"]
+print({"moment_mean": iv_moments(Z, y, X, m.theta_).mean(0).round(5).tolist(),
+       "parameter_covariance_shape": list(m.covariance_.shape),
+       "backend_coefficient_max_gap": float(np.max(np.abs(m.theta_-fits["scipy"].theta_)))})
+assert np.allclose(m.covariance_, m.vtheta_/n)
+```
+
+Use `covariance_` for estimated coefficient variance. `vtheta_` retains the asymptotic, non-divided scale. A fixed positive-definite matrix is accepted as `weighting_matrix`; `"identity"` avoids the second weighting step. `init_params` determines parameter dimension when it differs from `x.shape[1]`, including nonlinear moment models.
+
+Rank-deficient moment covariances and locally unidentified parameters raise errors. Near-singularity can still produce unstable estimates before a rank check fails: examine instrument relevance, perturbations and uncertainty rather than taking optimizer success as identification.
+
+**API:** [GMMEstimator](../reference/gmm.GMMEstimator.qmd), [Torch backend](../reference/gmm.gmm.GMMEstimatorTorch.qmd), [SciPy backend](../reference/gmm.gmm.GMMEstimatorScipy.qmd). **Background:** Hansen (1982) and Newey–West (1987), linked in [references](../references.qmd).

@@ -1,0 +1,33 @@
+---
+title: Choosing an estimator
+---
+
+Choose the restriction you can defend and the output you need. A flexible fit is not by itself an identification argument.
+
+| Problem | Starting point | Key restriction | Main output |
+|---|---|---|---|
+| Linear mean with observed covariates and additive effects | [OLS/WLS/FE](../guides/linear-regression.qmd) | Regressor exogeneity after absorption | Slopes; classical or HC0/HC1 covariance |
+| Binary responses or counts | [Logit/Poisson GLMs](../guides/likelihood-glms.qmd) | Specified conditional mean/link; stronger assumptions for model-based SEs | Probabilities/count means |
+| Endogeneity and a finite instrument vector | [GMM](../guides/gmm.qmd) | Valid, sufficiently informative moments | Parameters and iid/HAC sandwich |
+| Alternative empirical weighting of moments | [GEL](../guides/gel.qmd) | Valid moments and feasible tilting problem | Parameters, first-order covariance |
+| Nonlinear structural function with conditional instruments | [MMR/SMD](../guides/conditional-moments.qmd) | Conditional moments and identification of the function | Fitted function, criterion diagnostics |
+| Several unordered actions | [Static choice](../guides/static-choice.qmd) | Utility normalization and logit/probit restrictions | Choice probabilities |
+| Choices that affect future states | [NFXP/CCP](../guides/dynamic-choice.qmd) | Markov structure, known/fixed transitions, shock assumptions | Structural utilities and policy predictions |
+| A treated block of a balanced panel | [SC/SDID](../guides/synthetic-did.qmd) | Counterfactual comparability of weighted controls | Point estimate and weights |
+| Missing outcome cells | [Matrix completion](../guides/matrix-completion.qmd) | Low-rank plus additive structure, informative support | Reconstructed outcome matrix |
+| Binary/count panels with latent heterogeneity | [Latent-factor GLM](../guides/latent-factors.qmd) | Low-rank natural parameter and family/link | Cell means/probabilities |
+| Discrete groups with different time profiles | [Grouped FE](../guides/grouped-effects.qmd) | Informative unit embeddings; group approximation | Slopes and group assignments |
+| Unknown error shape in linear regression | [Antitonic score](../guides/score-matching.qmd) | Shape-constrained residual score | Slopes and fitted score |
+| Synthetic rows for simulation | [Generative models](../guides/generative-models.qmd) | Representative training distribution and adequate fitting | Draws, not a causal estimand |
+
+## Estimation, prediction and inference are different capabilities
+
+Dynamic choice and low-rank logit have prediction interfaces but no implemented standard errors. Neural conditional moments and factorized panel models do not provide a generic valid confidence interval merely because gradients exist. SC/SDID here return point estimates, not automatically valid placebo or bootstrap intervals. The linear estimator does not implement clustered covariance.
+
+If the goal is a causal panel effect, distinguish an **observation mask** from an **untreated-training mask**. Matrix completion and latent-factor GLMs fit whichever cells they receive. A good held-out-cell score does not prove accurate extrapolation to a treated block.
+
+## What belongs elsewhere
+
+Trex is not a formula parser, missing-data imputation policy, experiment randomization engine, or a complete causal-identification framework. It does not offer every estimator found in its research notebooks as a stable public class. The separate Gaussian-tabular pilot and policy-aligned CATE proposal are not documented as merged API features.
+
+For all public entry points—including preprocessing, transition estimation and result structures—see the [API index](../reference/index.qmd).

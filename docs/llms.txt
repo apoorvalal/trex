@@ -1,0 +1,16 @@
+# Trex
+
+> Econometric estimators and simulation models in PyTorch. Research library maintained at https://github.com/apoorvalal/trex; not the unrelated PyPI package named trex.
+
+- [Start](https://apoorvalal.github.io/trex/start/installation.html): install from GitHub and pin a source revision.
+- [Choose an estimator](https://apoorvalal.github.io/trex/start/choosing.html): objectives, data layouts and inference boundaries.
+- [Numerics](https://apoorvalal.github.io/trex/start/numerics.html): dtype, device, weighting and covariance conventions.
+- [API](https://apoorvalal.github.io/trex/reference/index.html): generated signatures and public methods.
+- [Regression](https://apoorvalal.github.io/trex/guides/linear-regression.html): WLS, absorbed effects, HC0/HC1.
+- [GMM](https://apoorvalal.github.io/trex/guides/gmm.html): SciPy/Torch backends and iid/HAC covariance.
+- [Choice](https://apoorvalal.github.io/trex/guides/dynamic-choice.html): Bellman equations, NFXP, CCPs and policy simulation.
+- [Panel](https://apoorvalal.github.io/trex/guides/synthetic-did.html): SC/SDID weights and counterfactual paths.
+- [Generators](https://apoorvalal.github.io/trex/guides/generative-models.html): tabular GANs, PTGAN, diffusion and fidelity diagnostics.
+- [Build provenance](https://apoorvalal.github.io/trex/build-info.json): source commit and dependency versions.
+
+Documentation contains executable examples but not universal statistical guarantees. Dynamic-choice, low-rank-choice and panel-effect inference have explicit limitations. Learned row distributions do not by themselves define causal interventions.
