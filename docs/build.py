@@ -157,15 +157,23 @@ def local_math(site):
                 raise RuntimeError("Invalid archive member")
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(package.extractfile(member).read())
+    # The Jupyter templates used by Quarto 1.5 and 1.8 use different CDNs.
+    unused_loaders = [
+        "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js",
+        "https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js",
+        "https://cdn.jsdelivr.net/npm/requirejs@2.3.6/require.min.js",
+    ]
+    loader_pattern = "|".join(re.escape(url) for url in unused_loaders)
     for page in site.rglob("*.html"):
         prefix = Path(os.path.relpath(dest, page.parent)).as_posix() + "/"
         text = page.read_text()
         text = re.sub(r"https://cdn\.jsdelivr\.net/npm/katex@[^/]+/dist/", prefix, text)
-        # These vignettes produce static HTML tables/SVG figures, not widgets.
-        # Quarto 1.5 injects unused Jupyter loaders, whose AMD define conflicts
+        # These vignettes produce static HTML tables/figures, not widgets.
+        # Quarto injects unused Jupyter loaders, whose AMD define conflicts
         # with site scripts. Remove those specific CDN shims, not user scripts.
-        text = re.sub(r'<script[^>]*src="https://cdnjs\.cloudflare\.com/ajax/libs/(?:jquery/3\.5\.1/jquery|require\.js/2\.3\.6/require)\.min\.js"[^>]*></script>', '', text)
-        text = re.sub(r"<script[^>]*>define\('jquery', \[\],function\(\) \{return window\.jQuery;\}\)</script>", '', text)
+        text = re.sub(rf'<script[^>]*src="(?:{loader_pattern})"[^>]*>\s*</script>', '', text)
+        text = re.sub(r"<script[^>]*>\s*define\(['\"]jquery['\"],\s*\[\],\s*function\(\)\s*\{\s*return window\.jQuery;\s*\}\)\s*;?\s*</script>", '', text)
         page.write_text(text)
 
 
