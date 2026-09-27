@@ -181,7 +181,7 @@ def collect(args):
     (args.out/"metadata.json").write_text(json.dumps(bundle["metadata"], indent=2)+"\n")
     rows = summarize(bundle)
     with (args.out/"summary.csv").open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(f, fieldnames=list(rows[0]), lineterminator="\n")
         writer.writeheader(); writer.writerows(rows)
     hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in
               [args.out/n for n in ("measurements.json.gz", "manifest.json", "metadata.json", "summary.csv")]}
