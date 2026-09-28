@@ -1,0 +1,11 @@
+{
+  "tests": 6,
+  "passed": 6,
+  "scope": "benchmarks/gaussian_tabular/test_model.py, CPU in fwk torch environment",
+  "full_trex_suite_run": false,
+  "model_sha256": "e0d89cd3ffdd05b6a747ed7672b3a3e9768341f7e8c922190dc81b162e7e09a9",
+  "comparison_rows": 60,
+  "capacity_checks": 108,
+  "all_em_converged": true,
+  "public_api_changed": false
+}
