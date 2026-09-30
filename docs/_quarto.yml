@@ -146,6 +146,8 @@ quartodoc:
         - gmm.rho_el
         - gmm.rho_exponential
         - gmm.rho_cue
+        - gmm.ScalarIVCUE
+        - gmm.PolynomialCUEResult
     - title: Conditional moments and scores
       contents:
         - MaximumMomentRestriction
