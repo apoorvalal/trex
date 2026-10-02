@@ -1,0 +1,20 @@
+{
+  "title": "Continuously Updating GMM in Linear IV Models: A Polynomial Approach",
+  "authors": [
+    "Marcelo J. Moreira",
+    "Whitney K. Newey",
+    "Mahrad Sharifvaghefi"
+  ],
+  "version": "2609.36445v1",
+  "source_url": "https://arxiv.org/src/2609.36445v1",
+  "sha256": "d2fc7893d57914a7773749dbc43ec778f89fb7ee37f1de057edacdd291d35b29",
+  "retrieved": "2026-09-30",
+  "files": [
+    "00README.json",
+    "CU_GMM_v9g_arvix.tex",
+    "References_combined.bib",
+    "pctdiff_1.pdf",
+    "pctdiff_2.pdf"
+  ],
+  "note": "Source contains the main paper but no online supplement or author simulation code. Implementation is independent, not an author-code replication."
+}

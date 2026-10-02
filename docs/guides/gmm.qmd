@@ -81,3 +81,56 @@ Use `covariance_` for estimated coefficient variance. `vtheta_` retains the asym
 Rank-deficient moment covariances and locally unidentified parameters raise errors. Near-singularity can still produce unstable estimates before a rank check fails: examine instrument relevance, perturbations and uncertainty rather than taking optimizer success as identification.
 
 **API:** [GMMEstimator](../reference/gmm.GMMEstimator.qmd), [Torch backend](../reference/gmm.gmm.GMMEstimatorTorch.qmd), [SciPy backend](../reference/gmm.gmm.GMMEstimatorScipy.qmd). **Background:** Hansen (1982) and Newey–West (1987), linked in [references](../references.qmd).
+
+## Experimental scalar CUE: polynomial candidates
+
+[Moreira, Newey and Sharifvaghefi (2026)](https://arxiv.org/abs/2609.36445v1)
+show that linear-IV CUE with one endogenous regressor and a fixed
+positive-definite joint reduced-form covariance is a polynomial ratio.
+Writing $g(\beta)=a-\beta b$ and
+$\Omega(\beta)=S_{11}-\beta(S_{12}+S_{21})+\beta^2 S_{22}$,
+
+$$
+Q(\beta)=g(\beta)'\Omega(\beta)^{-1}g(\beta)
+=\frac{p(\beta)}{q(\beta)},\qquad
+h(\beta)=p'(\beta)q(\beta)-p(\beta)q'(\beta).
+$$
+
+With $k$ instruments, the degrees of $p,q$ are at most $2k$ and the
+stationary polynomial has degree at most $4k-2$. Evaluate the original
+matrix criterion at all real stationary roots and at the common infinite
+endpoint $b'S_{22}^{-1}b$. This targets **CUE**, not the fixed-weight
+two-step GMM estimator above.
+
+```{python}
+from trex.gmm import ScalarIVCUE
+
+# One endogenous column; demeaning handles the intercept.
+cue_problem = ScalarIVCUE.from_data(z, y, x, weighting="reduced_form")
+cue_result = cue_problem.minimize_polynomial()
+print({"beta": cue_result.beta, "objective": cue_result.fun,
+       "at_infinity": cue_result.at_infinity,
+       "certified": cue_result.certified})
+```
+
+This opt-in **CPU/float64 prototype** uses Chebyshev interpolation and companion
+eigenvalues in two projective coordinate charts, then checks/polishes roots
+against derivatives of the matrix criterion. It supports HC0, Bartlett HAC
+and one-way CR0 cluster-score covariances. `weighting="raw"` instead gives
+structural-residual CUE; with HC0 this is the existing quadratic GEL profile
+up to its factor $1/(2n)$. Do not compare optimizers using different weight
+definitions and attribute the difference to optimization.
+
+The polynomial solver currently permits at most 12 instruments and raises
+on failed interpolation or stationarity checks. Numerical checks are **not
+an exact global certificate**. An infinite result is reported as such, not
+turned into a large finite estimate. Numerically constant objectives are
+flagged and do not establish identification. Singular covariances, multiple
+endogenous regressors, CLR calculations and weak-IV standard errors are
+outside this implementation; existing GMM/GEL defaults are unchanged.
+
+See the [executed comparison notebook](https://github.com/apoorvalal/trex/blob/main/nb/cue_polynomial_comparison.ipynb)
+and [implementation and reproduction notes](https://github.com/apoorvalal/trex/tree/main/benchmarks/cue_polynomial).
+
+**API:** [ScalarIVCUE](../reference/gmm.ScalarIVCUE.qmd),
+[PolynomialCUEResult](../reference/gmm.PolynomialCUEResult.qmd).
