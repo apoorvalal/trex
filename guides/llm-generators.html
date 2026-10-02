@@ -650,7 +650,7 @@ Y&amp;=E\cdot\operatorname{round}
 \end{aligned}
 </span></p>
 <p>The models see numeric training examples and the column names, <strong>not this formula or the held-out rows</strong>. Seed <code>20260927</code> generates the training, held-out and independent-reference samples in that order. Here are the first eight training observations:</p>
-<div id="4ea706e1" class="cell" data-execution_count="2">
+<div id="a8f1f384" class="cell" data-execution_count="2">
 <div class="cell-output cell-output-display">
 <div>
 
@@ -725,7 +725,7 @@ Y&amp;=E\cdot\operatorname{round}
 <h2 class="anchored" data-anchor-id="frozen-in-context-generation">Frozen in-context generation</h2>
 <p><code>fit</code> stores rows; it does not update the base model’s parameters. Each prompt shows eight randomly selected training rows and requests eight new CSV rows. Trex uses its plain-text row prompt, not the model’s chat template.</p>
 <p>The following is the configuration executed on the GPU. The downloadable runner also records every prompt, completion, parsing attempt and timing.</p>
-<div id="d3e1f0b7" class="cell" data-execution_count="3">
+<div id="e061b71f" class="cell" data-execution_count="3">
 <details class="code-fold">
 <summary>Show Python</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
@@ -757,7 +757,7 @@ Y&amp;=E\cdot\operatorname{round}
 <section id="training-and-reloading-a-qlora-adapter" class="level2">
 <h2 class="anchored" data-anchor-id="training-and-reloading-a-qlora-adapter">Training and reloading a QLoRA adapter</h2>
 <p>For a frozen matrix <span class="math inline">W</span>, LoRA trains the low-rank update <span class="math inline">BA</span> in <span class="math inline">W+BA</span>. Here the base uses <strong>four-bit NF4 with double quantization and BF16 compute</strong>, and the adapter has rank 16, scaling parameter 32 and dropout 0.05. Generation reloads the same quantization configuration as training.</p>
-<div id="5b5402d5" class="cell" data-execution_count="4">
+<div id="0a5993fb" class="cell" data-execution_count="4">
 <details class="code-fold">
 <summary>Show Python</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>adapted <span class="op">=</span> SafetensorsQLORAGenerator(<span class="op">**</span>settings).fit(</span>
@@ -777,7 +777,7 @@ Y&amp;=E\cdot\operatorname{round}
 </div>
 <p>The 512 training examples are prompt/completion pairs constructed solely from the 800 training rows, not 512 additional observations. Each completion contains four rows. Prompt and padding tokens have loss labels masked out; only completion tokens train the adapter. All examples retained supervised tokens after truncation: <strong>31–47 tokens per example</strong>.</p>
 <p>The completed run performed <strong>64 optimizer steps</strong>, trained <strong>8,798,208 adapter parameters</strong>, saved the adapter, and reloaded it for generation.</p>
-<div id="be1dbacb" class="cell" data-execution_count="5">
+<div id="96c136b3" class="cell" data-execution_count="5">
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -796,7 +796,7 @@ Y&amp;=E\cdot\operatorname{round}
 <ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true" href="">Frozen Qwen</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false" href="">Qwen + QLoRA</a></li></ul>
 <div class="tab-content">
 <div id="tabset-1-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-1-1-tab">
-<div id="a4af5d22" class="cell" data-execution_count="6">
+<div id="202a7c43" class="cell" data-execution_count="6">
 <div class="cell-output cell-output-display">
 <div>
 
@@ -855,7 +855,7 @@ Y&amp;=E\cdot\operatorname{round}
 </div>
 </div>
 <div id="tabset-1-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-2-tab">
-<div id="1ed519a5" class="cell" data-execution_count="7">
+<div id="1b062a1a" class="cell" data-execution_count="7">
 <div class="cell-output cell-output-display">
 <div>
 
@@ -915,7 +915,7 @@ Y&amp;=E\cdot\operatorname{round}
 </div>
 </div>
 </div>
-<div id="b97bd9e3" class="cell" data-execution_count="8">
+<div id="e1903153" class="cell" data-execution_count="8">
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -929,7 +929,7 @@ Y&amp;=E\cdot\operatorname{round}
 <section id="distributional-fidelity" class="level2">
 <h2 class="anchored" data-anchor-id="distributional-fidelity">Distributional fidelity</h2>
 <p>Distances are computed against the 512 held-out rows after standardizing each column by its <strong>training-set</strong> mean and standard deviation. Sliced Wasserstein uses 128 projections with seed 91. Smaller distances and correlation errors are better. All returned rows are finite; <strong>the seven support-invalid frozen-model rows remain in the primary metrics</strong>.</p>
-<div id="9281441c" class="cell" data-execution_count="9">
+<div id="1962d1a9" class="cell" data-execution_count="9">
 <div class="cell-output cell-output-display">
 <div>
 
@@ -993,7 +993,7 @@ Y&amp;=E\cdot\operatorname{round}
 </div>
 </div>
 <p>The frozen model’s sliced-Wasserstein distance is <strong>0.198</strong>, versus <strong>0.270</strong> after QLoRA and <strong>0.158</strong> for resampling. Adaptation improves correlation structure, but worsens the marginal distributions: employment shifts to <strong>62.1%</strong>, compared with <strong>47.7%</strong> in the held-out sample, and mean income rises to <strong>23.04</strong> rather than <strong>16.96</strong> thousand.</p>
-<div id="b181167e" class="cell" data-execution_count="10">
+<div id="9e7c0cdc" class="cell" data-execution_count="10">
 <div class="cell-output cell-output-display">
 <div>
 
@@ -1044,7 +1044,7 @@ Y&amp;=E\cdot\operatorname{round}
 </div>
 </div>
 </div>
-<div id="35f1135c" class="cell" data-execution_count="11">
+<div id="951d5fdc" class="cell" data-execution_count="11">
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -1060,7 +1060,7 @@ Y&amp;=E\cdot\operatorname{round}
 <section id="parsing-reliability-and-cost" class="level2">
 <h2 class="anchored" data-anchor-id="parsing-reliability-and-cost">Parsing reliability and cost</h2>
 <p>Frozen Qwen frequently writes prose or Python code instead of the requested CSV. <strong>44 of its 62 attempts return no parseable rows</strong>. Adaptation eliminates empty attempts in this run, although neither model reliably returns exactly the requested row count. Valid CSV is distinct from a valid economic row.</p>
-<div id="9aba8ce8" class="cell" data-execution_count="12">
+<div id="b36baa67" class="cell" data-execution_count="12">
 <div class="cell-output cell-output-display">
 <div>
 
@@ -1149,7 +1149,7 @@ Y&amp;=E\cdot\operatorname{round}
 <li><a href="https://github.com/apoorvalal/trex/blob/main/benchmarks/llm_generators/run.py">GPU runner</a> and <a href="https://github.com/apoorvalal/trex/blob/main/benchmarks/llm_generators/analyze.py">saved-data analysis</a>.</li>
 </ul>
 <p>Install Trex from this repository in a CUDA-enabled environment. The optional runtime dependencies are <code>transformers</code>, <code>safetensors</code>, <code>accelerate</code>, <code>peft</code> and <code>bitsandbytes</code>. The exact versions used here are:</p>
-<div id="e2acc57b" class="cell" data-execution_count="13">
+<div id="b7ac95c3" class="cell" data-execution_count="13">
 <div class="cell-output cell-output-display">
 <div>
 

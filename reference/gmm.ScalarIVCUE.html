@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>choice.DeepValueFunction – Trex</title>
+<title>gmm.ScalarIVCUE – Trex</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -331,7 +331,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item">choice.DeepValueFunction</li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item">gmm.ScalarIVCUE</li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
     </div>
@@ -546,10 +546,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#attributes" id="toc-attributes" class="nav-link active" data-scroll-target="#attributes">Attributes</a></li>
+  <li><a href="#parameters" id="toc-parameters" class="nav-link active" data-scroll-target="#parameters">Parameters</a></li>
+  <li><a href="#notes" id="toc-notes" class="nav-link" data-scroll-target="#notes">Notes</a></li>
+  <li><a href="#attributes" id="toc-attributes" class="nav-link" data-scroll-target="#attributes">Attributes</a></li>
   <li><a href="#methods" id="toc-methods" class="nav-link" data-scroll-target="#methods">Methods</a>
   <ul class="collapse">
-  <li><a href="#trex.choice.DeepValueFunction.forward" id="toc-trex.choice.DeepValueFunction.forward" class="nav-link" data-scroll-target="#trex.choice.DeepValueFunction.forward">forward</a></li>
+  <li><a href="#trex.gmm.ScalarIVCUE.from_data" id="toc-trex.gmm.ScalarIVCUE.from_data" class="nav-link" data-scroll-target="#trex.gmm.ScalarIVCUE.from_data">from_data</a></li>
+  <li><a href="#trex.gmm.ScalarIVCUE.minimize_polynomial" id="toc-trex.gmm.ScalarIVCUE.minimize_polynomial" class="nav-link" data-scroll-target="#trex.gmm.ScalarIVCUE.minimize_polynomial">minimize_polynomial</a></li>
+  <li><a href="#trex.gmm.ScalarIVCUE.value" id="toc-trex.gmm.ScalarIVCUE.value" class="nav-link" data-scroll-target="#trex.gmm.ScalarIVCUE.value">value</a></li>
+  <li><a href="#trex.gmm.ScalarIVCUE.value_derivatives" id="toc-trex.gmm.ScalarIVCUE.value_derivatives" class="nav-link" data-scroll-target="#trex.gmm.ScalarIVCUE.value_derivatives">value_derivatives</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -560,7 +565,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">choice.DeepValueFunction</h1>
+<h1 class="title">gmm.ScalarIVCUE</h1>
 </div>
 
 
@@ -577,15 +582,60 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p><span id="trex.choice.DeepValueFunction"></span></p>
-<p><a href="../guides/dynamic-choice.html">Guide &amp; worked example</a> · <a href="https://github.com/apoorvalal/trex/blob/5fcb7a987a981a6ccdaee8bb72f38d6276d65230/trex/choice/transitions.py#L147">Source</a></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>choice.DeepValueFunction(state_dim, n_choices, hidden_dims<span class="op">=</span>[<span class="dv">128</span>, <span class="dv">64</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Neural network value function approximation for high-dimensional states.</p>
-<p>Enables dynamic choice estimation when |X| &gt; 10,000 makes tabular methods intractable. Uses deep Q-network (DQN) style architecture.</p>
-<p>References: Rawat &amp; Rust (2025), pp.&nbsp;16-17: “Deep RL can indeed overcome the curse of dimensionality that limits traditional Dynamic Programming”</p>
+<p><span id="trex.gmm.ScalarIVCUE"></span></p>
+<p><a href="../guides/gmm.html">Guide &amp; worked example</a> · <a href="https://github.com/apoorvalal/trex/blob/5fcb7a987a981a6ccdaee8bb72f38d6276d65230/trex/gmm/cue.py#L41">Source</a></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>gmm.ScalarIVCUE(a, b, sigma)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Scalar CUE objective <code>(a-beta*b)' Omega(beta)^-1 (a-beta*b)</code>.</p>
+<section id="parameters" class="level2 doc-section doc-section-parameters">
+<h2 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters">Parameters</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 4%">
+<col style="width: 17%">
+<col style="width: 71%">
+<col style="width: 6%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>a</td>
+<td>(array_like, shape(k))</td>
+<td>Sample moments <code>Z'y/sqrt(n)</code> and <code>Z'x/sqrt(n)</code>.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="even">
+<td>b</td>
+<td>(array_like, shape(k))</td>
+<td>Sample moments <code>Z'y/sqrt(n)</code> and <code>Z'x/sqrt(n)</code>.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="odd">
+<td>sigma</td>
+<td>(array_like, shape(2 * k, 2 * k))</td>
+<td>Fixed symmetric positive-definite joint moment covariance, in block order (outcome, endogenous regressor). No ridge is added automatically.</td>
+<td><em>required</em></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="notes" class="level2 doc-section doc-section-notes">
+<h2 class="doc-section doc-section-notes anchored" data-anchor-id="notes">Notes</h2>
+<p><code>Omega(beta) = S11 - beta*(S12+S21) + beta**2*S22</code>. A covariance-based affine change of parameter and an invertible instrument transformation improve conditioning without changing the objective. Only the polynomial solver is capped at 12 instruments; objective evaluation has no such cap. No parameter standard errors or hypothesis-test calibration are provided.</p>
+</section>
 <section id="attributes" class="level2">
 <h2 class="anchored" data-anchor-id="attributes">Attributes</h2>
 <table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -594,7 +644,31 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </thead>
 <tbody>
 <tr class="odd">
-<td><span id="trex.choice.DeepValueFunction.network"><code>network</code></span></td>
+<td><span id="trex.gmm.ScalarIVCUE.A"><code>A</code></span></td>
+<td></td>
+</tr>
+<tr class="even">
+<td><span id="trex.gmm.ScalarIVCUE.B"><code>B</code></span></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><span id="trex.gmm.ScalarIVCUE.C"><code>C</code></span></td>
+<td></td>
+</tr>
+<tr class="even">
+<td><span id="trex.gmm.ScalarIVCUE.center"><code>center</code></span></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><span id="trex.gmm.ScalarIVCUE.k"><code>k</code></span></td>
+<td></td>
+</tr>
+<tr class="even">
+<td><span id="trex.gmm.ScalarIVCUE.normalized_condition"><code>normalized_condition</code></span></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><span id="trex.gmm.ScalarIVCUE.scale"><code>scale</code></span></td>
 <td></td>
 </tr>
 </tbody>
@@ -611,17 +685,56 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </thead>
 <tbody>
 <tr class="odd">
-<td><a href="#trex.choice.DeepValueFunction.forward">forward</a></td>
-<td>Compute value function for each choice at given states.</td>
+<td><a href="#trex.gmm.ScalarIVCUE.from_data">from_data</a></td>
+<td>Build the fixed joint covariance and scalar-IV sample moments.</td>
+</tr>
+<tr class="even">
+<td><a href="#trex.gmm.ScalarIVCUE.minimize_polynomial">minimize_polynomial</a></td>
+<td>Interpolate p/q, enumerate real companion roots, compare with infinity.</td>
+</tr>
+<tr class="odd">
+<td><a href="#trex.gmm.ScalarIVCUE.value">value</a></td>
+<td>Evaluate the original matrix criterion, including the common ±∞ limit.</td>
+</tr>
+<tr class="even">
+<td><a href="#trex.gmm.ScalarIVCUE.value_derivatives">value_derivatives</a></td>
+<td>Return Q, dQ/dbeta, d²Q/dbeta²; infinity has no beta derivatives.</td>
 </tr>
 </tbody>
 </table>
-<section id="trex.choice.DeepValueFunction.forward" class="level3">
-<h3 class="anchored" data-anchor-id="trex.choice.DeepValueFunction.forward">forward</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>choice.DeepValueFunction.forward(state)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Compute value function for each choice at given states.</p>
-<p>Args: state: (batch, state_dim) continuous states</p>
-<p>Returns: values: (batch, n_choices) choice-specific values v̄(s,a)</p>
+<section id="trex.gmm.ScalarIVCUE.from_data" class="level3">
+<h3 class="anchored" data-anchor-id="trex.gmm.ScalarIVCUE.from_data">from_data</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>gmm.ScalarIVCUE.from_data(</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    z,</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    y,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    x,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>,</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    covariance<span class="op">=</span><span class="st">'hc0'</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    weighting<span class="op">=</span><span class="st">'reduced_form'</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    demean<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    max_lags<span class="op">=</span><span class="dv">0</span>,</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    clusters<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Build the fixed joint covariance and scalar-IV sample moments.</p>
+<p><code>weighting='reduced_form'</code> uses residuals from OLS of each column of (y,x) on Z, as in the paper’s setup. <code>weighting='raw'</code> uses (y,x) itself: with HC0 this is exactly the structural-moment CUE criterion profiled by Trex’s quadratic GEL, up to its factor 1/(2*n).</p>
+<p><code>covariance</code> is ‘hc0’, Bartlett ‘hac’, or one-way ‘cluster’ (CR0, sum of cluster-score outer products / n; no small-sample correction). <code>demean=True</code> removes an intercept, not arbitrary included controls. Pass one scalar endogenous regressor; do not pass an intercept in Z when demeaning. Joint covariance singularities are rejected.</p>
+</section>
+<section id="trex.gmm.ScalarIVCUE.minimize_polynomial" class="level3">
+<h3 class="anchored" data-anchor-id="trex.gmm.ScalarIVCUE.minimize_polynomial">minimize_polynomial</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>gmm.ScalarIVCUE.minimize_polynomial(validation_tol<span class="op">=</span><span class="fl">1e-07</span>, root_tol<span class="op">=</span><span class="fl">1e-07</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Interpolate p/q, enumerate real companion roots, compare with infinity.</p>
+<p>Two overlapping projective charts, t=(beta-center)/scale and 1/t, cover the entire real line with |chart coordinate|&lt;=1. This avoids discarding remote finite roots or imposing parameter search bounds. NumPy’s Chebyshev companion eigenproblem is the basis-conditioned counterpart of the paper’s monomial companion matrix. Each candidate is polished using derivatives of the original matrix objective.</p>
+<p>The finite-precision checks are diagnostics, not a certificate. A failed interpolation/stationarity check raises FloatingPointError. The singular and multivariate algorithms in the paper are not included.</p>
+</section>
+<section id="trex.gmm.ScalarIVCUE.value" class="level3">
+<h3 class="anchored" data-anchor-id="trex.gmm.ScalarIVCUE.value">value</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>gmm.ScalarIVCUE.value(beta)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Evaluate the original matrix criterion, including the common ±∞ limit.</p>
+</section>
+<section id="trex.gmm.ScalarIVCUE.value_derivatives" class="level3">
+<h3 class="anchored" data-anchor-id="trex.gmm.ScalarIVCUE.value_derivatives">value_derivatives</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>gmm.ScalarIVCUE.value_derivatives(beta)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Return Q, dQ/dbeta, d²Q/dbeta²; infinity has no beta derivatives.</p>
 
 
 </section>

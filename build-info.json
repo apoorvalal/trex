@@ -1,12 +1,12 @@
 {
   "source_repository": "https://github.com/apoorvalal/trex",
-  "source_commit": "2af5c2c2d0a59260d4a371dadc79298c1c486254",
+  "source_commit": "5fcb7a987a981a6ccdaee8bb72f38d6276d65230",
   "tracked_source_dirty": false,
-  "built_at_utc": "2026-09-27T19:31:03.690699+00:00",
+  "built_at_utc": "2026-10-02T23:43:13.631526+00:00",
   "python": "3.12.14",
   "quarto": "1.8.27",
   "dependencies": {
-    "torch": "2.14.0+cpu",
+    "torch": "2.14.1+cpu",
     "numpy": "2.5.3",
     "scipy": "1.18.1",
     "pandas": "3.0.6",
@@ -14,7 +14,7 @@
     "griffe": "1.15.0",
     "matplotlib": "3.11.2"
   },
-  "api_entries": 71,
+  "api_entries": 73,
   "katex": "0.16.22 (locally bundled, SHA-256 verified)",
   "executable_guides": [
     "conditional-moments",

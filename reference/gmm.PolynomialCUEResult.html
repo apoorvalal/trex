@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>choice.DeepValueFunction – Trex</title>
+<title>gmm.PolynomialCUEResult – Trex</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -331,7 +331,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item">choice.DeepValueFunction</li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item">gmm.PolynomialCUEResult</li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
     </div>
@@ -547,10 +547,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
    
   <ul>
   <li><a href="#attributes" id="toc-attributes" class="nav-link active" data-scroll-target="#attributes">Attributes</a></li>
-  <li><a href="#methods" id="toc-methods" class="nav-link" data-scroll-target="#methods">Methods</a>
-  <ul class="collapse">
-  <li><a href="#trex.choice.DeepValueFunction.forward" id="toc-trex.choice.DeepValueFunction.forward" class="nav-link" data-scroll-target="#trex.choice.DeepValueFunction.forward">forward</a></li>
-  </ul></li>
   </ul>
 </nav>
     </div>
@@ -560,7 +556,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">choice.DeepValueFunction</h1>
+<h1 class="title">gmm.PolynomialCUEResult</h1>
 </div>
 
 
@@ -577,15 +573,28 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p><span id="trex.choice.DeepValueFunction"></span></p>
-<p><a href="../guides/dynamic-choice.html">Guide &amp; worked example</a> · <a href="https://github.com/apoorvalal/trex/blob/5fcb7a987a981a6ccdaee8bb72f38d6276d65230/trex/choice/transitions.py#L147">Source</a></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>choice.DeepValueFunction(state_dim, n_choices, hidden_dims<span class="op">=</span>[<span class="dv">128</span>, <span class="dv">64</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Neural network value function approximation for high-dimensional states.</p>
-<p>Enables dynamic choice estimation when |X| &gt; 10,000 makes tabular methods intractable. Uses deep Q-network (DQN) style architecture.</p>
-<p>References: Rawat &amp; Rust (2025), pp.&nbsp;16-17: “Deep RL can indeed overcome the curse of dimensionality that limits traditional Dynamic Programming”</p>
+<p><span id="trex.gmm.PolynomialCUEResult"></span></p>
+<p><a href="../guides/gmm.html">Guide &amp; worked example</a> · <a href="https://github.com/apoorvalal/trex/blob/5fcb7a987a981a6ccdaee8bb72f38d6276d65230/trex/gmm/cue.py#L21">Source</a></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>gmm.PolynomialCUEResult(</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    beta,</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    fun,</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    candidates,</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    values,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    at_infinity,</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    constant,</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    diagnostics,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    elapsed_seconds,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    certified<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Candidate enumeration result; <code>beta=inf</code> means no selected finite fit.</p>
+<p><code>constant</code> denotes a numerically flat criterion, not identification. <code>diagnostics</code> records interpolation and stationarity residuals. Passing these checks is not proof that floating-point roots are complete.</p>
 <section id="attributes" class="level2">
 <h2 class="anchored" data-anchor-id="attributes">Attributes</h2>
 <table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -594,37 +603,45 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </thead>
 <tbody>
 <tr class="odd">
-<td><span id="trex.choice.DeepValueFunction.network"><code>network</code></span></td>
+<td><span id="trex.gmm.PolynomialCUEResult.at_infinity"><code>at_infinity</code></span></td>
+<td></td>
+</tr>
+<tr class="even">
+<td><span id="trex.gmm.PolynomialCUEResult.beta"><code>beta</code></span></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><span id="trex.gmm.PolynomialCUEResult.candidates"><code>candidates</code></span></td>
+<td></td>
+</tr>
+<tr class="even">
+<td><span id="trex.gmm.PolynomialCUEResult.certified"><code>certified</code></span></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><span id="trex.gmm.PolynomialCUEResult.constant"><code>constant</code></span></td>
+<td></td>
+</tr>
+<tr class="even">
+<td><span id="trex.gmm.PolynomialCUEResult.diagnostics"><code>diagnostics</code></span></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><span id="trex.gmm.PolynomialCUEResult.elapsed_seconds"><code>elapsed_seconds</code></span></td>
+<td></td>
+</tr>
+<tr class="even">
+<td><span id="trex.gmm.PolynomialCUEResult.fun"><code>fun</code></span></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><span id="trex.gmm.PolynomialCUEResult.values"><code>values</code></span></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-</section>
-<section id="methods" class="level2">
-<h2 class="anchored" data-anchor-id="methods">Methods</h2>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><a href="#trex.choice.DeepValueFunction.forward">forward</a></td>
-<td>Compute value function for each choice at given states.</td>
-</tr>
-</tbody>
-</table>
-<section id="trex.choice.DeepValueFunction.forward" class="level3">
-<h3 class="anchored" data-anchor-id="trex.choice.DeepValueFunction.forward">forward</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>choice.DeepValueFunction.forward(state)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Compute value function for each choice at given states.</p>
-<p>Args: state: (batch, state_dim) continuous states</p>
-<p>Returns: values: (batch, n_choices) choice-specific values v̄(s,a)</p>
 
 
-</section>
 </section>
 
 </main> <!-- /main -->

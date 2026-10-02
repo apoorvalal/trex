@@ -581,7 +581,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 <p><span id="trex.LinearRegression"></span></p>
-<p><a href="../guides/linear-regression.html">Guide &amp; worked example</a> · <a href="https://github.com/apoorvalal/trex/blob/2af5c2c2d0a59260d4a371dadc79298c1c486254/trex/linear.py#L12">Source</a></p>
+<p><a href="../guides/linear-regression.html">Guide &amp; worked example</a> · <a href="https://github.com/apoorvalal/trex/blob/5fcb7a987a981a6ccdaee8bb72f38d6276d65230/trex/linear.py#L12">Source</a></p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>LinearRegression(solver<span class="op">=</span><span class="st">'torch'</span>, device<span class="op">=</span><span class="va">None</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Least squares with optional additive fixed effects.</p>
 <p><code>X</code> must include a constant if desired. <code>weights</code> are strictly positive analytic/WLS weights, not frequency counts. <code>classical</code> uses weighted SSE divided by residual degrees of freedom; HC0/HC1 use the weighted sandwich. HC1 counts the exact rank of the absorbed effects by default.</p>

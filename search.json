@@ -141,7 +141,7 @@
     "href": "reference/index.html#unconditional-moments",
     "title": "API reference",
     "section": "Unconditional moments",
-    "text": "Unconditional moments\nGMM backends, GEL and their criterion functions.\n\n\n\ngmm.GMMEstimator\nDispatch to a SciPy or Torch GMM implementation.\n\n\ngmm.gmm.GMMEstimatorScipy\n\n\n\ngmm.gmm.GMMEstimatorTorch\n\n\n\ngmm.gmm.moment_covariance\nUncentered long-run covariance of observation-level moment vectors.\n\n\ngmm.GELEstimator\nGeneralized empirical likelihood estimator for vector-valued moments.\n\n\ngmm.rho_el\nEmpirical Likelihood (EL): rho(v) = log(1-v)\n\n\ngmm.rho_exponential\nExponential tilting (ET): rho(v) = 1 - exp(v)\n\n\ngmm.rho_cue\nContinuously Updated Estimator (CUE): rho(v) = -0.5*v^2 - v",
+    "text": "Unconditional moments\nGMM backends, GEL and their criterion functions.\n\n\n\ngmm.GMMEstimator\nDispatch to a SciPy or Torch GMM implementation.\n\n\ngmm.gmm.GMMEstimatorScipy\n\n\n\ngmm.gmm.GMMEstimatorTorch\n\n\n\ngmm.gmm.moment_covariance\nUncentered long-run covariance of observation-level moment vectors.\n\n\ngmm.GELEstimator\nGeneralized empirical likelihood estimator for vector-valued moments.\n\n\ngmm.rho_el\nEmpirical Likelihood (EL): rho(v) = log(1-v)\n\n\ngmm.rho_exponential\nExponential tilting (ET): rho(v) = 1 - exp(v)\n\n\ngmm.rho_cue\nContinuously Updated Estimator (CUE): rho(v) = -0.5*v^2 - v\n\n\ngmm.ScalarIVCUE\nScalar CUE objective (a-beta*b)' Omega(beta)^-1 (a-beta*b).\n\n\ngmm.PolynomialCUEResult\nCandidate enumeration result; beta=inf means no selected finite fit.",
     "crumbs": [
       "Get started",
       "API reference"
@@ -246,6 +246,20 @@
     "title": "gmm.gmm.GMMEstimatorScipy",
     "section": "Methods",
     "text": "Methods\n\n\n\nName\nDescription\n\n\n\n\nfit\n\n\n\ngmm_objective\n\n\n\niv_moment\n\n\n\njacobian_moment_cond\n\n\n\noptimal_weighting_matrix\n\n\n\nsummary\n\n\n\n\n\nfit\ngmm.gmm.GMMEstimatorScipy.fit(\n    z,\n    y,\n    x,\n    verbose=False,\n    fit_method=None,\n    iid=True,\n    two_step=True,\n    *,\n    init_params=None,\n    max_lags=None,\n    tol=1e-09,\n    maxiter=2000,\n)\n\n\ngmm_objective\ngmm.gmm.GMMEstimatorScipy.gmm_objective(beta)\n\n\niv_moment\ngmm.gmm.GMMEstimatorScipy.iv_moment(z, y, x, beta)\n\n\njacobian_moment_cond\ngmm.gmm.GMMEstimatorScipy.jacobian_moment_cond()\n\n\noptimal_weighting_matrix\ngmm.gmm.GMMEstimatorScipy.optimal_weighting_matrix(moments)\n\n\nsummary\ngmm.gmm.GMMEstimatorScipy.summary(prec=4, alpha=0.05)"
+  },
+  {
+    "objectID": "reference/gmm.PolynomialCUEResult.html",
+    "href": "reference/gmm.PolynomialCUEResult.html",
+    "title": "gmm.PolynomialCUEResult",
+    "section": "",
+    "text": "Guide & worked example · Source\nCandidate enumeration result; beta=inf means no selected finite fit.\nconstant denotes a numerically flat criterion, not identification. diagnostics records interpolation and stationarity residuals. Passing these checks is not proof that floating-point roots are complete."
+  },
+  {
+    "objectID": "reference/gmm.PolynomialCUEResult.html#attributes",
+    "href": "reference/gmm.PolynomialCUEResult.html#attributes",
+    "title": "gmm.PolynomialCUEResult",
+    "section": "Attributes",
+    "text": "Attributes\n\n\n\n\n\n\n\nName\nDescription\n\n\n\n\nat_infinity\n\n\n\nbeta\n\n\n\ncandidates\n\n\n\ncertified\n\n\n\nconstant\n\n\n\ndiagnostics\n\n\n\nelapsed_seconds\n\n\n\nfun\n\n\n\nvalues"
   },
   {
     "objectID": "reference/gmm.GELEstimator.html",
@@ -1076,6 +1090,18 @@
     ]
   },
   {
+    "objectID": "guides/gmm.html#experimental-scalar-cue-polynomial-candidates",
+    "href": "guides/gmm.html#experimental-scalar-cue-polynomial-candidates",
+    "title": "Instrumental variables and GMM",
+    "section": "Experimental scalar CUE: polynomial candidates",
+    "text": "Experimental scalar CUE: polynomial candidates\nMoreira, Newey and Sharifvaghefi (2026) show that linear-IV CUE with one endogenous regressor and a fixed positive-definite joint reduced-form covariance is a polynomial ratio. Writing g(\\beta)=a-\\beta b and \\Omega(\\beta)=S_{11}-\\beta(S_{12}+S_{21})+\\beta^2 S_{22},\n\nQ(\\beta)=g(\\beta)'\\Omega(\\beta)^{-1}g(\\beta)\n=\\frac{p(\\beta)}{q(\\beta)},\\qquad\nh(\\beta)=p'(\\beta)q(\\beta)-p(\\beta)q'(\\beta).\n\nWith k instruments, the degrees of p,q are at most 2k and the stationary polynomial has degree at most 4k-2. Evaluate the original matrix criterion at all real stationary roots and at the common infinite endpoint b'S_{22}^{-1}b. This targets CUE, not the fixed-weight two-step GMM estimator above.\n\n\nShow Python\nfrom trex.gmm import ScalarIVCUE\n\n# One endogenous column; demeaning handles the intercept.\ncue_problem = ScalarIVCUE.from_data(z, y, x, weighting=\"reduced_form\")\ncue_result = cue_problem.minimize_polynomial()\nprint({\"beta\": cue_result.beta, \"objective\": cue_result.fun,\n       \"at_infinity\": cue_result.at_infinity,\n       \"certified\": cue_result.certified})\n\n\n{'beta': 1.6047524911443598, 'objective': 0.1998541053005381, 'at_infinity': False, 'certified': False}\n\n\nThis opt-in CPU/float64 prototype uses Chebyshev interpolation and companion eigenvalues in two projective coordinate charts, then checks/polishes roots against derivatives of the matrix criterion. It supports HC0, Bartlett HAC and one-way CR0 cluster-score covariances. weighting=\"raw\" instead gives structural-residual CUE; with HC0 this is the existing quadratic GEL profile up to its factor 1/(2n). Do not compare optimizers using different weight definitions and attribute the difference to optimization.\nThe polynomial solver currently permits at most 12 instruments and raises on failed interpolation or stationarity checks. Numerical checks are not an exact global certificate. An infinite result is reported as such, not turned into a large finite estimate. Numerically constant objectives are flagged and do not establish identification. Singular covariances, multiple endogenous regressors, CLR calculations and weak-IV standard errors are outside this implementation; existing GMM/GEL defaults are unchanged.\nSee the executed comparison notebook and implementation and reproduction notes.\nAPI: ScalarIVCUE, PolynomialCUEResult.",
+    "crumbs": [
+      "Get started",
+      "Regression & moments",
+      "Instrumental variables and GMM"
+    ]
+  },
+  {
     "objectID": "guides/gel.html",
     "href": "guides/gel.html",
     "title": "Generalized empirical likelihood",
@@ -1353,7 +1379,7 @@
     "href": "start/installation.html#verify-the-environment",
     "title": "Installation and reproducibility",
     "section": "Verify the environment",
-    "text": "Verify the environment\n\n\nShow Python\nimport platform\nimport torch\nimport trex\n\nprint({\"python\": platform.python_version(), \"torch\": torch.__version__,\n       \"trex\": trex.__version__, \"cuda_available\": torch.cuda.is_available()})\n\n\n{'python': '3.12.14', 'torch': '2.14.0+cpu', 'trex': '0.1.0', 'cuda_available': False}\n\n\nThe executable guides use device=\"cpu\" deliberately, so they do not require a GPU. This does not imply CPU and CUDA are equally fast or bitwise identical. See numerical conventions before moving a workload between devices.",
+    "text": "Verify the environment\n\n\nShow Python\nimport platform\nimport torch\nimport trex\n\nprint({\"python\": platform.python_version(), \"torch\": torch.__version__,\n       \"trex\": trex.__version__, \"cuda_available\": torch.cuda.is_available()})\n\n\n{'python': '3.12.14', 'torch': '2.14.1+cpu', 'trex': '0.1.0', 'cuda_available': False}\n\n\nThe executable guides use device=\"cpu\" deliberately, so they do not require a GPU. This does not imply CPU and CUDA are equally fast or bitwise identical. See numerical conventions before moving a workload between devices.",
     "crumbs": [
       "Get started",
       "Getting started",
@@ -2314,6 +2340,41 @@
     "title": "gmm.GMMEstimator",
     "section": "Methods",
     "text": "Methods\n\n\n\nName\nDescription\n\n\n\n\nfit\n\n\n\ngmm_objective\n\n\n\njacobian_moment_cond\n\n\n\noptimal_weighting_matrix\n\n\n\nsummary\n\n\n\n\n\nfit\ngmm.GMMEstimator.fit(\n    z,\n    y,\n    x,\n    verbose=False,\n    fit_method=None,\n    iid=True,\n    two_step=True,\n    *,\n    init_params=None,\n    max_lags=None,\n    tol=1e-09,\n    maxiter=2000,\n)\n\n\ngmm_objective\ngmm.GMMEstimator.gmm_objective(beta)\n\n\njacobian_moment_cond\ngmm.GMMEstimator.jacobian_moment_cond()\n\n\noptimal_weighting_matrix\ngmm.GMMEstimator.optimal_weighting_matrix(moments)\n\n\nsummary\ngmm.GMMEstimator.summary(prec=4, alpha=0.05)"
+  },
+  {
+    "objectID": "reference/gmm.ScalarIVCUE.html",
+    "href": "reference/gmm.ScalarIVCUE.html",
+    "title": "gmm.ScalarIVCUE",
+    "section": "",
+    "text": "Guide & worked example · Source\nScalar CUE objective (a-beta*b)' Omega(beta)^-1 (a-beta*b)."
+  },
+  {
+    "objectID": "reference/gmm.ScalarIVCUE.html#parameters",
+    "href": "reference/gmm.ScalarIVCUE.html#parameters",
+    "title": "gmm.ScalarIVCUE",
+    "section": "Parameters",
+    "text": "Parameters\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\na\n(array_like, shape(k))\nSample moments Z'y/sqrt(n) and Z'x/sqrt(n).\nrequired\n\n\nb\n(array_like, shape(k))\nSample moments Z'y/sqrt(n) and Z'x/sqrt(n).\nrequired\n\n\nsigma\n(array_like, shape(2 * k, 2 * k))\nFixed symmetric positive-definite joint moment covariance, in block order (outcome, endogenous regressor). No ridge is added automatically.\nrequired"
+  },
+  {
+    "objectID": "reference/gmm.ScalarIVCUE.html#notes",
+    "href": "reference/gmm.ScalarIVCUE.html#notes",
+    "title": "gmm.ScalarIVCUE",
+    "section": "Notes",
+    "text": "Notes\nOmega(beta) = S11 - beta*(S12+S21) + beta**2*S22. A covariance-based affine change of parameter and an invertible instrument transformation improve conditioning without changing the objective. Only the polynomial solver is capped at 12 instruments; objective evaluation has no such cap. No parameter standard errors or hypothesis-test calibration are provided."
+  },
+  {
+    "objectID": "reference/gmm.ScalarIVCUE.html#attributes",
+    "href": "reference/gmm.ScalarIVCUE.html#attributes",
+    "title": "gmm.ScalarIVCUE",
+    "section": "Attributes",
+    "text": "Attributes\n\n\n\n\n\n\n\nName\nDescription\n\n\n\n\nA\n\n\n\nB\n\n\n\nC\n\n\n\ncenter\n\n\n\nk\n\n\n\nnormalized_condition\n\n\n\nscale"
+  },
+  {
+    "objectID": "reference/gmm.ScalarIVCUE.html#methods",
+    "href": "reference/gmm.ScalarIVCUE.html#methods",
+    "title": "gmm.ScalarIVCUE",
+    "section": "Methods",
+    "text": "Methods\n\n\n\nName\nDescription\n\n\n\n\nfrom_data\nBuild the fixed joint covariance and scalar-IV sample moments.\n\n\nminimize_polynomial\nInterpolate p/q, enumerate real companion roots, compare with infinity.\n\n\nvalue\nEvaluate the original matrix criterion, including the common ±∞ limit.\n\n\nvalue_derivatives\nReturn Q, dQ/dbeta, d²Q/dbeta²; infinity has no beta derivatives.\n\n\n\n\nfrom_data\ngmm.ScalarIVCUE.from_data(\n    z,\n    y,\n    x,\n    *,\n    covariance='hc0',\n    weighting='reduced_form',\n    demean=True,\n    max_lags=0,\n    clusters=None,\n)\nBuild the fixed joint covariance and scalar-IV sample moments.\nweighting='reduced_form' uses residuals from OLS of each column of (y,x) on Z, as in the paper’s setup. weighting='raw' uses (y,x) itself: with HC0 this is exactly the structural-moment CUE criterion profiled by Trex’s quadratic GEL, up to its factor 1/(2*n).\ncovariance is ‘hc0’, Bartlett ‘hac’, or one-way ‘cluster’ (CR0, sum of cluster-score outer products / n; no small-sample correction). demean=True removes an intercept, not arbitrary included controls. Pass one scalar endogenous regressor; do not pass an intercept in Z when demeaning. Joint covariance singularities are rejected.\n\n\nminimize_polynomial\ngmm.ScalarIVCUE.minimize_polynomial(validation_tol=1e-07, root_tol=1e-07)\nInterpolate p/q, enumerate real companion roots, compare with infinity.\nTwo overlapping projective charts, t=(beta-center)/scale and 1/t, cover the entire real line with |chart coordinate|&lt;=1. This avoids discarding remote finite roots or imposing parameter search bounds. NumPy’s Chebyshev companion eigenproblem is the basis-conditioned counterpart of the paper’s monomial companion matrix. Each candidate is polished using derivatives of the original matrix objective.\nThe finite-precision checks are diagnostics, not a certificate. A failed interpolation/stationarity check raises FloatingPointError. The singular and multivariate algorithms in the paper are not included.\n\n\nvalue\ngmm.ScalarIVCUE.value(beta)\nEvaluate the original matrix criterion, including the common ±∞ limit.\n\n\nvalue_derivatives\ngmm.ScalarIVCUE.value_derivatives(beta)\nReturn Q, dQ/dbeta, d²Q/dbeta²; infinity has no beta derivatives."
   },
   {
     "objectID": "reference/gmm.gmm.GMMEstimatorTorch.html",

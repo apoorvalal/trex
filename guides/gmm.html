@@ -597,6 +597,7 @@ window.Quarto = {
   <li><a href="#from-restrictions-to-an-estimator" id="toc-from-restrictions-to-an-estimator" class="nav-link active" data-scroll-target="#from-restrictions-to-an-estimator">From restrictions to an estimator</a></li>
   <li><a href="#endogenous-regressor-example" id="toc-endogenous-regressor-example" class="nav-link" data-scroll-target="#endogenous-regressor-example">Endogenous regressor example</a></li>
   <li><a href="#weighting-dependence-and-inference" id="toc-weighting-dependence-and-inference" class="nav-link" data-scroll-target="#weighting-dependence-and-inference">Weighting, dependence and inference</a></li>
+  <li><a href="#experimental-scalar-cue-polynomial-candidates" id="toc-experimental-scalar-cue-polynomial-candidates" class="nav-link" data-scroll-target="#experimental-scalar-cue-polynomial-candidates">Experimental scalar CUE: polynomial candidates</a></li>
   </ul>
 <div class="toc-actions"><ul><li><a href="https://github.com/apoorvalal/trex/edit/main/docs/guides/gmm.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/apoorvalal/trex/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
     </div>
@@ -635,7 +636,7 @@ Q_n(\theta)=\bar g_n(\theta)'W\bar g_n(\theta),\qquad
 </section>
 <section id="endogenous-regressor-example" class="level2">
 <h2 class="anchored" data-anchor-id="endogenous-regressor-example">Endogenous regressor example</h2>
-<div id="b356d0f0" class="cell" data-execution_count="1">
+<div id="7747764e" class="cell" data-execution_count="1">
 <details class="code-fold">
 <summary>Show Python</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
@@ -720,7 +721,7 @@ Q_n(\theta)=\bar g_n(\theta)'W\bar g_n(\theta),\qquad
 \widehat\Gamma_\ell=\frac1n\sum_{i=\ell+1}^n g_i g_{i-\ell}'.
 </span></p>
 <p>Set <code>max_lags</code> explicitly when a particular bandwidth is part of the design. Reordering the rows changes this calculation. HAC is not a substitute for an arbitrary cluster structure.</p>
-<div id="a9116fd3" class="cell" data-execution_count="2">
+<div id="d3cd6f21" class="cell" data-execution_count="2">
 <details class="code-fold">
 <summary>Show Python</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> fits[<span class="st">"torch"</span>]</span>
@@ -736,6 +737,36 @@ Q_n(\theta)=\bar g_n(\theta)'W\bar g_n(\theta),\qquad
 <p>Use <code>covariance_</code> for estimated coefficient variance. <code>vtheta_</code> retains the asymptotic, non-divided scale. A fixed positive-definite matrix is accepted as <code>weighting_matrix</code>; <code>"identity"</code> avoids the second weighting step. <code>init_params</code> determines parameter dimension when it differs from <code>x.shape[1]</code>, including nonlinear moment models.</p>
 <p>Rank-deficient moment covariances and locally unidentified parameters raise errors. Near-singularity can still produce unstable estimates before a rank check fails: examine instrument relevance, perturbations and uncertainty rather than taking optimizer success as identification.</p>
 <p><strong>API:</strong> <a href="../reference/gmm.GMMEstimator.html">GMMEstimator</a>, <a href="../reference/gmm.gmm.GMMEstimatorTorch.html">Torch backend</a>, <a href="../reference/gmm.gmm.GMMEstimatorScipy.html">SciPy backend</a>. <strong>Background:</strong> Hansen (1982) and Newey–West (1987), linked in <a href="../references.html">references</a>.</p>
+</section>
+<section id="experimental-scalar-cue-polynomial-candidates" class="level2">
+<h2 class="anchored" data-anchor-id="experimental-scalar-cue-polynomial-candidates">Experimental scalar CUE: polynomial candidates</h2>
+<p><a href="https://arxiv.org/abs/2609.36445v1">Moreira, Newey and Sharifvaghefi (2026)</a> show that linear-IV CUE with one endogenous regressor and a fixed positive-definite joint reduced-form covariance is a polynomial ratio. Writing <span class="math inline">g(\beta)=a-\beta b</span> and <span class="math inline">\Omega(\beta)=S_{11}-\beta(S_{12}+S_{21})+\beta^2 S_{22}</span>,</p>
+<p><span class="math display">
+Q(\beta)=g(\beta)'\Omega(\beta)^{-1}g(\beta)
+=\frac{p(\beta)}{q(\beta)},\qquad
+h(\beta)=p'(\beta)q(\beta)-p(\beta)q'(\beta).
+</span></p>
+<p>With <span class="math inline">k</span> instruments, the degrees of <span class="math inline">p,q</span> are at most <span class="math inline">2k</span> and the stationary polynomial has degree at most <span class="math inline">4k-2</span>. Evaluate the original matrix criterion at all real stationary roots and at the common infinite endpoint <span class="math inline">b'S_{22}^{-1}b</span>. This targets <strong>CUE</strong>, not the fixed-weight two-step GMM estimator above.</p>
+<div id="1cc6186a" class="cell" data-execution_count="3">
+<details class="code-fold">
+<summary>Show Python</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> trex.gmm <span class="im">import</span> ScalarIVCUE</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co"># One endogenous column; demeaning handles the intercept.</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>cue_problem <span class="op">=</span> ScalarIVCUE.from_data(z, y, x, weighting<span class="op">=</span><span class="st">"reduced_form"</span>)</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>cue_result <span class="op">=</span> cue_problem.minimize_polynomial()</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>({<span class="st">"beta"</span>: cue_result.beta, <span class="st">"objective"</span>: cue_result.fun,</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>       <span class="st">"at_infinity"</span>: cue_result.at_infinity,</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>       <span class="st">"certified"</span>: cue_result.certified})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>{'beta': 1.6047524911443598, 'objective': 0.1998541053005381, 'at_infinity': False, 'certified': False}</code></pre>
+</div>
+</div>
+<p>This opt-in <strong>CPU/float64 prototype</strong> uses Chebyshev interpolation and companion eigenvalues in two projective coordinate charts, then checks/polishes roots against derivatives of the matrix criterion. It supports HC0, Bartlett HAC and one-way CR0 cluster-score covariances. <code>weighting="raw"</code> instead gives structural-residual CUE; with HC0 this is the existing quadratic GEL profile up to its factor <span class="math inline">1/(2n)</span>. Do not compare optimizers using different weight definitions and attribute the difference to optimization.</p>
+<p>The polynomial solver currently permits at most 12 instruments and raises on failed interpolation or stationarity checks. Numerical checks are <strong>not an exact global certificate</strong>. An infinite result is reported as such, not turned into a large finite estimate. Numerically constant objectives are flagged and do not establish identification. Singular covariances, multiple endogenous regressors, CLR calculations and weak-IV standard errors are outside this implementation; existing GMM/GEL defaults are unchanged.</p>
+<p>See the <a href="https://github.com/apoorvalal/trex/blob/main/nb/cue_polynomial_comparison.ipynb">executed comparison notebook</a> and <a href="https://github.com/apoorvalal/trex/tree/main/benchmarks/cue_polynomial">implementation and reproduction notes</a>.</p>
+<p><strong>API:</strong> <a href="../reference/gmm.ScalarIVCUE.html">ScalarIVCUE</a>, <a href="../reference/gmm.PolynomialCUEResult.html">PolynomialCUEResult</a>.</p>
 
 
 </section>
